@@ -97,3 +97,47 @@ dialog{position:fixed;border:0;padding:0;width:min(630px,calc(100% - 32px));max-
 @media(max-width:850px){.earnings{padding:85px var(--gutter)}.earnings-layout{grid-template-columns:1fr;gap:42px;max-width:600px}.earnings-copy h2 br:last-child{display:none}.earnings-copy h2{font-size:62px;max-width:580px}.earnings-copy>p{max-width:500px}.earnings-split{max-width:500px}.earnings-calculator{padding:32px}.earnings-calculator h3{font-size:34px}.earnings-result output{font-size:61px}}
 @media(max-width:600px){.earnings{padding:70px 22px}.earnings-layout{gap:32px}.earnings-copy>.eyebrow{font-size:8px}.earnings-copy h2{font-size:clamp(40px,11.5vw,60px);margin:21px 0}.earnings-copy>p{font-size:16px}.earnings-split{margin-top:25px;padding-top:22px}.earnings-split strong{font-size:35px}.earnings-copy>.earnings-split-note{font-size:11px;margin-top:15px}.earnings-calculator{padding:23px 20px;border-radius:21px}.earnings-calculator h3{font-size:27px;letter-spacing:-1.2px}.earnings-calculator>p{font-size:13px}.earnings-fields{gap:12px;margin:23px 0 19px}.earnings-fields label{font-size:8px;letter-spacing:0}.earnings-fields input{font-size:21px;padding:12px 10px}.earnings-result{padding:20px 17px;border-radius:13px}.earnings-result>span{font-size:8px}.earnings-result output{font-size:clamp(29px,11vw,48px)}.earnings-breakdown{font-size:10px;gap:10px}.earnings-breakdown strong{font-size:14px}.earnings-calculator>.earnings-note{font-size:9px}.earnings-calculator>.pill{font-size:9px;gap:14px;padding-left:14px;padding-right:14px}.earnings-icon{width:30px;height:30px;font-size:23px}}
 @media(prefers-reduced-motion:reduce){.earnings-calculator{transition:none!important;transform:none!important;opacity:1!important}}
+
+/* The footer follows the same five sections as the main navigation. */
+.footer-top.footer-simple{grid-template-columns:minmax(230px,1fr) 2fr auto;align-items:start;gap:45px}
+.footer-navigation{display:flex;flex-wrap:wrap;gap:20px 32px;padding-top:8px}
+.footer-navigation a{font-size:18px;line-height:1.5;transition:color .2s}
+.footer-navigation a:hover,.footer-legal button:hover{color:var(--yellow)}
+.footer-legal{display:flex;flex-direction:column;align-items:flex-start;gap:16px;padding-top:10px}
+.footer-legal button{background:none;color:#aaa;padding:0;font-size:14px}
+/* Rich, scrollable sample conversations. */
+.demo-preview{min-width:0;grid-template-columns:minmax(0,1fr)}
+.demo-phone{width:330px;height:620px;max-width:100%}
+.demo-phone .phone-top{height:75px}
+.demo-phone .phone-thread{height:calc(100% - 125px);padding:17px 14px 25px;gap:12px;overflow-y:auto;overscroll-behavior-y:contain;overflow-anchor:none;touch-action:pan-y;cursor:grab;user-select:none;scroll-behavior:auto;scrollbar-color:#707070 #171717}
+.demo-phone .phone-thread:focus-visible{outline:2px solid var(--yellow);outline-offset:-3px}
+.demo-phone .phone-thread.is-dragging{cursor:grabbing}
+.demo-phone .phone-thread>*{flex-shrink:0}
+.demo-phone .msg{font-size:12px;line-height:1.45;max-width:92%;padding:11px 13px}
+.demo-phone .msg.demo-photo{width:92%;padding:5px;border-radius:17px 17px 3px 17px;overflow:hidden}
+.demo-photo img{width:100%;height:auto;aspect-ratio:1;max-height:265px;object-fit:contain;border-radius:12px;background:#eee;pointer-events:none}
+.demo-photo-caption{padding:10px 8px 9px;font-size:12px;line-height:1.45}
+.demo-phone .msg.demo-workout{max-width:100%;width:100%;background:var(--yellow);color:var(--ink);padding:17px 15px;border-radius:15px 15px 15px 3px}
+.demo-workout-meta{font:7px/1.5 var(--mono);letter-spacing:.015em}
+.demo-workout h4{font:700 19px/1.15 var(--body);letter-spacing:-.6px;margin:8px 0 11px}
+.demo-workout-warmup{font-size:10px;line-height:1.5;padding-bottom:12px;border-bottom:1px solid #0002}
+.demo-workout ol{list-style:none;counter-reset:exercise;padding:0;margin:0}
+.demo-workout li{counter-increment:exercise;display:grid;grid-template-columns:21px 1fr;column-gap:7px;padding:10px 0;border-bottom:1px solid #0002;line-height:1.3}
+.demo-workout li:before{content:counter(exercise,decimal-leading-zero);grid-row:1/3;font:8px var(--mono);padding-top:3px;opacity:.55}
+.demo-workout li strong{font-size:12px;font-weight:700}
+.demo-workout li span{grid-column:2;font-size:10px;margin-top:4px}
+.demo-workout-note{font-size:9px;line-height:1.5;margin-top:12px}
+.demo-phone .msg.demo-video{width:100%;max-width:100%;padding:0;background:#f5f2ff;color:#17121e;overflow:hidden;border-radius:15px 15px 15px 3px}
+.demo-video-link{display:block;padding:16px;cursor:pointer;transition:background .2s}
+.demo-video-link:hover{background:#e9dfff}
+.demo-video-link:focus-visible{outline-offset:-4px;outline-color:var(--purple)}
+.demo-video-play{display:grid;place-items:center;width:36px;height:28px;border-radius:8px;background:#ff0033;color:white;font-size:13px;margin-bottom:12px}
+.demo-video-source{display:block;font:7px/1.5 var(--mono);color:#756b80;margin-bottom:6px}
+.demo-video-link>strong{display:block;font-size:15px;line-height:1.25;letter-spacing:-.3px}
+.demo-video-action{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #17121e22;margin-top:14px;padding-top:11px;font-size:11px;font-weight:700}
+.demo-video-action>span{display:grid;place-items:center;width:27px;height:27px;border-radius:50%;background:var(--purple);color:white;font-size:19px;flex-shrink:0}
+.demo-scroll-hint{display:block;font:10px/1.7 var(--mono);margin-bottom:25px;color:#ffffffab}
+.demo-scroll-hint>span{font:29px var(--body);display:block;line-height:1;margin-bottom:10px}
+@media(max-width:1100px){.footer-top.footer-simple{grid-template-columns:1fr 1.7fr;gap:30px}.footer-legal{grid-column:2;flex-direction:row;gap:26px}.demo-phone{width:310px}.demo-panel{gap:20px}}
+@media(max-width:850px){.footer-navigation{gap:16px 24px}.demo-scroll-hint{margin-bottom:15px}.demo-scroll-hint br{display:none}.demo-scroll-hint>span{display:inline;font-size:20px;margin-right:8px}}
+@media(max-width:600px){.footer-top.footer-simple{grid-template-columns:1fr;gap:28px}.footer-navigation{display:grid;grid-template-columns:1fr 1fr;gap:17px 30px;padding:0}.footer-navigation a{font-size:17px}.footer-legal{grid-column:1;padding-top:0;gap:24px}.footer-legal button{font-size:13px}.demo-phone{width:300px;height:590px;max-width:100%}.demo-phone .phone-top{height:70px}.demo-phone .phone-thread{height:calc(100% - 115px);padding:15px 12px 20px;gap:10px}.demo-phone .msg{font-size:12px}.demo-photo-caption{font-size:12px}.demo-workout h4{font-size:18px}.demo-workout li strong{font-size:12px}.demo-workout li span{font-size:10px}.demo-explainer{padding-top:0}.demo-panel{gap:0}}

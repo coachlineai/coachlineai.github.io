@@ -27,3 +27,17 @@ The visual reference requested for this homepage is https://get.manychat.com/. T
 ## Creator earnings section
 
 The earnings calculator replaces the old comparison section; the three-step section has been removed. Navigation links scroll to Features, Channels, Earnings, Demo, and FAQs and highlight the current section. The calculator animates into view once and respects reduced motion and the animation pause control. Estimates use the proposed 80/20 revenue split, with inputs constrained to nonnegative values, whole paying-client counts, and prices rounded to cents. No payment or income is guaranteed.
+
+## Interactive conversation examples
+
+The footer uses the same Features, Channels, Earnings, Demo, and FAQs section links as the navbar. The demo phone supports mouse dragging, wheel scrolling, touch scrolling, and keyboard scrolling. Conversation changes reset the thread to the top so photos stay visible and new scripted messages do not interrupt reading.
+
+- Workout: a Tuesday leg-day example with exercises, sets, reps, warm-up, and rest guidance.
+- Meal: a realistic salad attachment followed by a conversation about visible ingredients and portion details.
+- Equipment: the supplied squat-rack photo, a short explanation, and a YouTube shortcut to Squat University’s “The Official Squat Form Checklist”: https://www.youtube.com/watch?v=Uv_DKDl7EjA.
+
+### New image assets
+
+`assets/demo-salad.webp` was generated with the built-in image generation tool in generate mode, then resized and converted to WebP for the site. Prompt: “Use case: photorealistic-natural. Asset type: an example client photo attachment inside a fitness coaching text conversation. Generate a single realistic candid smartphone snapshot of lunch: a casual white ceramic bowl of grilled chicken salad on a light wood kitchen table, romaine and mixed greens, cherry tomato halves, cucumber slices, sliced grilled chicken breast, avocado pieces, with a small cup of olive-oil vinaigrette beside the bowl. Slightly angled overhead iPhone viewpoint, bowl fully visible, everyday imperfect arrangement, natural window light, subtle phone-camera grain, unstyled and believable as a quick photo someone texts their fitness coach. Square composition, no people, no lettering, no labels, no app UI, no watermark. Preserve photographic detail; do not make an advertising food shoot.”
+
+`assets/demo-squat-rack.webp` is the reference photo supplied by the project owner, converted to WebP. These static attachments are example content; the site does not process uploaded client photos.

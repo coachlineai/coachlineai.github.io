@@ -114,26 +114,32 @@
       ['outgoing', 'Three days would work for me.'],
       ['incoming', 'A great place to start. Next, let’s talk about your experience and the equipment you have.']
     ]},
-    { description: 'Make room for real life. Explore how a companion can help turn your coaching approach into a routine clients understand.', messages: [
-      ['outgoing', 'I only have 30 minutes today. Can we make it count?'],
-      ['incoming', 'Let’s work with the time you have 💪 How are you feeling, and what equipment is available?'],
-      ['outgoing', 'Feeling good. I have dumbbells.'],
-      ['incoming', 'We can look at a shorter version of your coach’s approved session.'],
-      ['incoming', 'Start with the warm-up, focus on your main movements, and leave time to cool down. Small sessions still count.']
+    { description: 'A full session, straight to their messages. Your exercises, sets, reps, and coaching cues in one easy-to-follow plan.', messages: [
+      ['outgoing', 'Hey coach! What’s on my plan for Tuesday?'],
+      ['incoming', 'Tuesday is leg day 💪 Here’s your session.'],
+      ['incoming', { type: 'workout', title: 'Tuesday · Leg day', subtitle: '45–60 MIN · SAMPLE WORKOUT', warmup: 'Warm up: 5–10 minutes of easy movement and lighter practice sets.', exercises: [
+        ['Squats', '4 sets × 10 reps'],
+        ['Romanian deadlifts', '3 sets × 10 reps'],
+        ['Reverse lunges', '3 sets × 10 reps per leg'],
+        ['Leg curls', '3 sets × 12 reps'],
+        ['Standing calf raises', '3 sets × 15 reps']
+      ], note: 'Rest about 2 minutes between squat sets and 60–90 seconds between the other sets.' }],
+      ['incoming', 'Use the weights your coach assigned. Send me a check-in afterward and let me know how it felt.'],
+      ['outgoing', 'Got it. Leg day it is 🔥']
     ]},
-    { description: 'Turn a meal photo into a useful conversation. Ask about portions and ingredients to give context to an estimate.', messages: [
-      ['outgoing', '🥗 Here’s my lunch. Chicken, rice, and vegetables.'],
-      ['incoming', 'A colorful plate! Can you share the serving sizes and any dressing or cooking oil?'],
-      ['outgoing', 'About a cup of rice and a palm-sized piece of chicken.'],
-      ['incoming', 'That helps. A photo alone can’t give exact nutrition, but those details help refine an estimate.'],
-      ['incoming', 'We can also talk about how this meal fits the habits you’re working on with your coach.']
+    { description: 'A photo makes the conversation personal. Your AI asks about portions and helps clients understand what is on their plate.', messages: [
+      ['outgoing', { type: 'photo', src: 'assets/demo-salad.webp', alt: 'A casual phone photo of grilled chicken salad with lettuce, cucumber, tomatoes, avocado, and dressing on the side.', caption: 'Here’s my lunch 🥗 How does it look?' }],
+      ['incoming', 'Looks like grilled chicken, greens, tomatoes, cucumber, and avocado. How much chicken, avocado, and dressing did you use?'],
+      ['outgoing', 'About 150 g of chicken, half an avocado, and a tablespoon of dressing.'],
+      ['incoming', 'Thanks! You’ve got protein from the chicken, fiber from the vegetables, and fats from the avocado and dressing. A colorful mix 🙌'],
+      ['incoming', 'Those portion details help me understand the meal better than a photo alone. How did you feel after eating it?']
     ]},
-    { description: 'A gym photo can start the conversation. Identify the equipment, confirm what it is, and find a trainer-approved demonstration.', messages: [
-      ['outgoing', '📷 What is this machine for?'],
-      ['incoming', 'In this example, it looks like a lat pulldown. Could you share the label so we can confirm?'],
-      ['outgoing', 'Yes, the label says lat pulldown.'],
-      ['incoming', 'Great. It’s used for a pulling movement that works your back. Your coach can share a demonstration and setup guidance.'],
-      ['incoming', 'The planned experience will link to approved videos. No live photo analysis is happening in this preview.']
+    { description: 'A gym photo becomes a clear explanation and a shortcut to a real exercise demonstration. Try the YouTube link in the chat.', messages: [
+      ['outgoing', { type: 'photo', src: 'assets/demo-squat-rack.webp', alt: 'A black squat rack with a loaded barbell and a flat bench in front of a white brick wall.', caption: 'What is this equipment for? Can I use it for leg day?' }],
+      ['incoming', 'That’s a squat rack with a barbell and a bench. The rack holds the bar for squats, which train your legs and glutes. The bench is used for exercises such as bench presses.'],
+      ['incoming', 'For squats, clear the bench out of the way and have a trainer help you set the bar height and appropriate safety supports. Here’s a technique walkthrough 👇'],
+      ['incoming', { type: 'video', href: 'https://www.youtube.com/watch?v=Uv_DKDl7EjA', title: 'The Official Squat Form Checklist', source: 'SQUAT UNIVERSITY · YOUTUBE', label: 'Watch the squat tutorial' }],
+      ['outgoing', 'Perfect. I’ll watch it before I start 👍']
     ]},
     { description: 'Keep small wins in the conversation. Reflect on the week, spot what got in the way, and plan the next step.', messages: [
       ['incoming', 'Check-in time ✨ How did your week feel?'],
@@ -147,14 +153,80 @@
   const demoThread = $('#demo-thread');
   let selectedTab = 0;
   let demoTimers = [];
-  function addMessage(container, direction, text, animate = true) {
+  function addMessage(container, direction, text, animate = true, follow = true) {
     const element = document.createElement('div');
     element.className = `msg ${direction}${animate && motion() ? ' message-in' : ''}`;
     element.textContent = text;
     container.append(element);
-    container.scrollTo({ top: container.scrollHeight, behavior: animate ? behavior() : 'instant' });
+    if (follow) container.scrollTo({ top: container.scrollHeight, behavior: animate ? behavior() : 'instant' });
     return element;
   }
+  function demoText(tag, className, text) {
+    const element = document.createElement(tag);
+    element.className = className;
+    element.textContent = text;
+    return element;
+  }
+  function addDemoMessage(direction, content, animate) {
+    if (typeof content === 'string') return addMessage(demoThread, direction, content, animate, false);
+    const bubble = document.createElement('div');
+    bubble.className = `msg ${direction} demo-${content.type}${animate && motion() ? ' message-in' : ''}`;
+    if (content.type === 'photo') {
+      const photo = document.createElement('img');
+      photo.src = content.src; photo.alt = content.alt;
+      photo.width = content.src.includes('salad') ? 900 : 678;
+      photo.height = content.src.includes('salad') ? 900 : 746;
+      photo.draggable = false; photo.decoding = 'async';
+      bubble.append(photo, demoText('p', 'demo-photo-caption', content.caption));
+    }
+    if (content.type === 'workout') {
+      bubble.append(demoText('span', 'demo-workout-meta', content.subtitle), demoText('h4', '', content.title), demoText('p', 'demo-workout-warmup', content.warmup));
+      const list = document.createElement('ol');
+      content.exercises.forEach(([name, reps]) => {
+        const item = document.createElement('li');
+        item.append(demoText('strong', '', name), demoText('span', '', reps));
+        list.append(item);
+      });
+      bubble.append(list, demoText('p', 'demo-workout-note', content.note));
+    }
+    if (content.type === 'video') {
+      const link = document.createElement('a');
+      link.className = 'demo-video-link'; link.href = content.href;
+      link.target = '_blank'; link.rel = 'noopener noreferrer';
+      link.setAttribute('aria-label', `${content.label} on YouTube (opens in a new tab)`);
+      const play = demoText('span', 'demo-video-play', '▶'); play.setAttribute('aria-hidden', 'true');
+      link.append(play, demoText('span', 'demo-video-source', content.source), demoText('strong', '', content.title));
+      const action = demoText('span', 'demo-video-action', content.label);
+      const arrow = demoText('span', '', '↗'); arrow.setAttribute('aria-hidden', 'true'); action.append(arrow);
+      link.append(action); bubble.append(link);
+    }
+    demoThread.append(bubble);
+  }
+  // Keep the conversation where the visitor leaves it as new examples appear.
+  // Touch devices use native scrolling; mouse users can grab the message thread.
+  let dragState = null;
+  demoThread.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'mouse' || event.button !== 0 || event.target.closest('a,button,input')) return;
+    dragState = { id: event.pointerId, y: event.clientY, top: demoThread.scrollTop };
+    demoThread.setPointerCapture(event.pointerId);
+    demoThread.classList.add('is-dragging');
+    event.preventDefault();
+    demoThread.focus({ preventScroll: true });
+  });
+  demoThread.addEventListener('pointermove', event => {
+    if (!dragState || event.pointerId !== dragState.id) return;
+    demoThread.scrollTop = dragState.top + dragState.y - event.clientY;
+  });
+  function endDemoDrag(event) {
+    if (!dragState || event.pointerId !== dragState.id) return;
+    if (demoThread.hasPointerCapture(event.pointerId)) demoThread.releasePointerCapture(event.pointerId);
+    dragState = null;
+    demoThread.classList.remove('is-dragging');
+  }
+  demoThread.addEventListener('pointerup', endDemoDrag);
+  demoThread.addEventListener('pointercancel', endDemoDrag);
+  demoThread.addEventListener('lostpointercapture', () => { dragState = null; demoThread.classList.remove('is-dragging'); });
+  demoThread.addEventListener('dragstart', event => event.preventDefault());
   function playDemo(index = selectedTab, animate = true) {
     demoTimers.forEach(clearTimeout); demoTimers = [];
     selectedTab = index;
@@ -166,9 +238,10 @@
     $('#demo-preview').setAttribute('aria-labelledby', `demo-tab-${index}`);
     $('#demo-description').textContent = examples[index].description;
     demoThread.replaceChildren();
+    demoThread.scrollTop = 0;
     examples[index].messages.forEach(([direction, text], i) => {
-      if (animate && motion() && i) demoTimers.push(setTimeout(() => addMessage(demoThread, direction, text), i * 850));
-      else addMessage(demoThread, direction, text, false);
+      if (animate && motion() && i) demoTimers.push(setTimeout(() => addDemoMessage(direction, text, true), i * 650));
+      else addDemoMessage(direction, text, false);
     });
   }
   tabs.forEach((tab, i) => {
