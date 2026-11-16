@@ -3,17 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CoachLine | Your coaching. More connected.</title>
-  <meta name="description" content="Meet CoachLine: AI companions that bring a fitness creator’s coaching style into everyday conversations. Explore workout, food, and check-in previews.">
+  <title>CoachLine | Your coaching. More clients.</title>
+  <meta name="description" content="Turn your workouts, content, and coaching style into an AI companion that supports your clients through messages. Your content. Your pricing. Your control.">
   <meta name="theme-color" content="#fff100">
-  <meta property="og:title" content="CoachLine — Coach smarter, not harder.">
-  <meta property="og:description" content="Your voice. Their goals. One conversation. Explore the future of coaching through messages.">
+  <meta property="og:title" content="CoachLine | Your coaching. More clients.">
+  <meta property="og:description" content="Turn your workouts, content, and coaching style into an AI companion that supports your clients through messages.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://coachlineai.github.io/">
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="assets/display.ttf" as="font" type="font/ttf" crossorigin>
-  <link rel="preload" href="assets/hero-desktop.avif" as="image" media="(min-width: 701px)">
+  <link rel="preload" href="assets/hero-coach-curl.webp" as="image">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="hero.css">
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -28,23 +29,24 @@
       <button class="nav-trigger" data-dialog="pricing">Pricing</button>
       <div class="nav-item"><button class="nav-trigger" aria-expanded="false" aria-controls="resources-menu">Resources</button><div class="nav-dropdown" id="resources-menu"><span class="eyebrow">LET’S GET YOU STARTED</span><a href="#demo">See how it works</a><a href="#how-it-works">Creator setup</a><a href="#faq">Your questions, answered</a></div></div>
     </nav>
-    <div class="nav-actions"><button class="pill outline" data-dialog="demo"><span>Get started</span></button><button class="sign-in" data-dialog="signin">Sign in</button></div>
+    <div class="nav-actions"><button class="pill outline" data-dialog="creator"><span>Get started</span></button><button class="sign-in" data-dialog="signin">Sign in</button></div>
     <button class="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><span></span><span></span></button>
   </header>
   <div class="nav-shade" aria-hidden="true"></div>
-  <nav id="mobile-menu" class="mobile-menu" aria-label="Mobile navigation" inert><a href="#features">Product</a><a href="#channels">Messaging</a><a href="#creators">For creators</a><button data-dialog="pricing">Pricing</button><a href="#faq">FAQs</a><button class="pill pink" data-dialog="demo">Get started <span>↗</span></button></nav>
+  <nav id="mobile-menu" class="mobile-menu" aria-label="Mobile navigation" inert><a href="#features">Product</a><a href="#channels">Messaging</a><a href="#creators">For creators</a><button data-dialog="pricing">Pricing</button><a href="#faq">FAQs</a><button class="pill pink" data-dialog="creator">Get started <span>↗</span></button></nav>
 
   <main id="main">
-    <section class="hero" id="home" aria-labelledby="hero-title">
-      <picture class="hero-picture"><source media="(max-width:700px)" srcset="assets/hero-mobile.avif"><img src="assets/hero-desktop.avif" alt="A creator relaxing in his studio with a laptop" fetchpriority="high"></picture>
+    <section class="hero hero-coach" id="home" aria-labelledby="hero-title">
+      <picture class="hero-picture"><img src="assets/hero-coach-curl.webp" alt="Fitness coach performing a dumbbell curl in a dark gym" fetchpriority="high" width="1774" height="887"></picture>
       <div class="hero-shade"></div>
-      <div class="hero-copy"><h1 id="hero-title"><span>Coach smarter,</span><span>not harder.</span></h1><p>Your coaching style. More clients supported. Meet the AI companion built to bring your workouts, guidance, and check-ins into every conversation.</p><button class="pill pink" data-dialog="demo"><span>Get started</span><span class="button-arrow" aria-hidden="true">↗</span></button></div>
-      <div class="hero-conversation" aria-label="Example CoachLine conversation">
-        <div class="hero-bubble bubble-one"><span class="bubble-tag">YOU</span><p>Ready to get back at it 💪 <br>What’s the plan today?</p></div>
-        <div class="hero-bubble bubble-two"><span class="bubble-tag">YOUR COACH’S AI</span><p>Let’s make it happen. Here’s your next workout 👇</p><div class="mini-plan"><span class="mini-plan-icon">↗</span><div><strong>Full-body session</strong><small>35 MIN · YOUR WORKOUT</small></div><span>→</span></div></div>
-        <div class="hero-bubble bubble-three"><span class="bubble-tag">YOUR COACH’S AI</span><p>One session at a time. <br>You’ve got this. 🔥</p><span class="bubble-check">✓ Delivered</span></div>
+      <div class="hero-copy"><h1 id="hero-title"><span>Your coaching.</span><span>More clients.</span></h1><p>Turn your workouts, content, and coaching style into an AI companion that answers client questions, guides their training, and keeps them accountable through messages.</p><div class="hero-actions"><button class="pill pink" data-dialog="creator"><span>Create your AI companion</span><span class="button-arrow" aria-hidden="true">↗</span></button><a class="hero-secondary" href="#demo">See how it works <span aria-hidden="true">↗</span></a></div><div class="hero-benefits" aria-label="Built around your coaching business"><span><i aria-hidden="true">✓</i> Your content.</span><span><i aria-hidden="true">✓</i> Your pricing.</span><span><i aria-hidden="true">✓</i> Your control.</span></div></div>
+      <div class="hero-conversation" aria-label="Example of your AI supporting your clients">
+        <span class="conversation-label"><i aria-hidden="true"></i>Your AI, supporting your clients</span>
+        <div class="hero-bubble bubble-one"><span class="bubble-tag">CLIENT</span><p>I only have 20 minutes today. What should I do?</p></div>
+        <div class="hero-bubble bubble-two"><span class="bubble-tag">YOUR AI COMPANION</span><p>Let’s work with that. Here’s a shorter version of your coach’s session 💪</p><div class="mini-plan"><span class="mini-plan-icon">↗</span><div><strong>Full-body session</strong><small>20 MIN · YOUR COACH’S PLAN</small></div><span>→</span></div></div>
+        <div class="hero-bubble bubble-three"><span class="bubble-tag">YOUR CREATOR DASHBOARD</span><div class="coach-notification"><span aria-hidden="true">✓</span><p>Weekly check-in ready for your review.</p></div><span class="bubble-check">Example coach update</span></div>
       </div>
-      <div class="hero-bottom"><div class="hero-badges"><div><span class="badge-symbol">◎</span><span>Your voice. <br>Your coaching.</span></div><div><span class="badge-symbol bolt">ϟ</span><span>Made for <br>fitness creators</span></div><div><span class="badge-symbol">↗</span><span>More connection. <br>Less admin.</span></div></div><a class="scroll-cue" href="#creators" aria-label="Explore CoachLine">↓</a><span class="hero-note">THE COACHLINE PREVIEW</span></div>
+      <div class="hero-bottom"><span class="hero-footnote">BUILT FOR FITNESS COACHES & CREATORS</span><a class="scroll-cue" href="#creators" aria-label="Explore CoachLine">↓</a><span class="hero-note">THE COACHLINE PREVIEW</span></div>
       <button class="motion-toggle" aria-label="Pause animations" aria-pressed="false" title="Pause animations"><span aria-hidden="true">Ⅱ</span></button>
     </section>
 

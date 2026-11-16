@@ -7,6 +7,14 @@
   const motion = () => !reduced.matches && !paused;
   const behavior = () => motion() ? 'smooth' : 'instant';
   const clamp = (number, low, high) => Math.max(low, Math.min(high, number));
+  const heroConversation = $('.hero-conversation');
+  const sizeHeroConversation = () => {
+    heroConversation.style.setProperty('--reply-rise', `${$('.bubble-two', heroConversation).offsetHeight + 12}px`);
+    heroConversation.style.setProperty('--update-rise', `${$('.bubble-three', heroConversation).offsetHeight + 12}px`);
+  };
+  const heroSizeObserver = new ResizeObserver(sizeHeroConversation);
+  $$('.hero-bubble', heroConversation).forEach(bubble => heroSizeObserver.observe(bubble));
+  sizeHeroConversation();
   const nav = $('#nav');
   const mobileMenu = $('#mobile-menu');
   const menuToggle = $('.menu-toggle');
@@ -242,7 +250,7 @@
     signin: ['CREATOR ACCOUNTS', 'Your coaching home is coming.', 'Creator sign-up and sign-in are part of the next stage of CoachLine. For now, explore the client experience with a sample conversation.'],
     voice: ['ON THE ROADMAP', 'A familiar voice. More connection.', 'We’re exploring voice notes that reflect a creator’s own voice, with their permission. This preview does not generate or clone voices.'],
     dashboard: ['ON THE ROADMAP', 'Your coaching, in one place.', 'The planned creator dashboard will bring together your approved content, client conversations, and updates that need your attention. This homepage is the first look at that experience.'],
-    privacy: ['PREVIEW PRIVACY', 'A little clarity.', 'This preview does not create accounts, take payments, upload photos, or send chat messages to an AI service. Text entered into the demo stays in this browser tab’s memory and is cleared when the page reloads. We have not added analytics or advertising trackers. GitHub Pages hosts the site and may process technical request information under its own privacy statement.'],
+    privacy: ['PREVIEW PRIVACY', 'A little clarity.', 'This preview does not create accounts, take payments, upload photos, or send chat messages to an AI service. Information entered into the creator setup and chat previews stays in this browser tab’s memory and is cleared when the page reloads. We have not added analytics or advertising trackers. GitHub Pages hosts the site and may process technical request information under its own privacy statement.'],
     terms: ['ABOUT THIS PREVIEW', 'Explore what’s next.', 'CoachLine is in development. The conversations and visual examples on this website are scripted demonstrations, not live coaching or individual fitness or medical advice. No subscription is started and no payment is taken. Features and proposed pricing may change before launch.']
   };
   function openDialog(type) {
@@ -251,6 +259,8 @@
     if (type === 'demo') {
       dialogContent.innerHTML = '<span class="eyebrow">INTERACTIVE PREVIEW</span><h2 id="dialog-title">Meet your AI companion.</h2><p>A little taste of the CoachLine experience. Pick a topic or type a message.</p><div class="modal-chat" role="log" aria-label="Sample chat" aria-live="polite"></div><div class="suggestions"><button data-prompt="Plan my week">Plan my week ↗</button><button data-prompt="Help with a meal">Help with a meal ↗</button><button data-prompt="Weekly check-in">Weekly check-in ↗</button></div><form class="chat-form"><input name="message" aria-label="Your message" placeholder="Try a message…" maxlength="400" autocomplete="off" required><button type="submit" aria-label="Send message">↑</button></form><p class="preview-footnote">Scripted preview. Live coaching is coming soon.</p>';
       addMessage($('.modal-chat'), 'incoming', 'Hey! I’m your coach’s AI companion 👋 In this preview, we can explore workouts, meals, or a weekly check-in. What’s on your mind?', false);
+    } else if (type === 'creator') {
+      dialogContent.innerHTML = '<span class="eyebrow">CREATOR SETUP PREVIEW</span><h2 id="dialog-title">Start with your coaching.</h2><p>Give your companion a name and a little direction. See how your coaching style could take shape.</p><form class="creator-form"><label>Your coaching name<input name="coach" placeholder="e.g. Coach Mathias" autocomplete="off" maxlength="60" required></label><label>Who do you coach?<input name="audience" placeholder="e.g. Beginners building strength" autocomplete="off" maxlength="120" required></label><label>Your coaching style<select name="style"><option>Encouraging and supportive</option><option>Direct and focused</option><option>Energetic and motivating</option></select></label><button class="pill black" type="submit">Preview your companion <span aria-hidden="true">↗</span></button></form><p class="preview-footnote">Preview only. No account is created or information saved. Live creator setup is coming.</p>';
     } else if (type === 'pricing') {
       dialogContent.innerHTML = '<span class="eyebrow">PROPOSED PRICING</span><h2 id="dialog-title">Your price.<br>Your community.</h2><p>You choose the monthly price. The proposed split is 80% for you and 20% for CoachLine.</p><div class="pricing-fields"><label>MONTHLY PRICE ($)<input id="monthly-price" type="number" min="0" max="10000" step="1" value="15"></label><label>PAYING CLIENTS<input id="client-count" type="number" min="0" max="1000000" step="1" value="300"></label></div><div class="pricing-result" aria-live="polite"><span>YOUR ESTIMATED MONTHLY SHARE</span><strong id="creator-share">$3,600</strong><span>80% OF SUBSCRIPTION REVENUE</span></div><div class="pricing-breakdown"><span>Gross revenue <b id="gross-revenue">$4,500</b></span><span>CoachLine’s share <b id="platform-share">$900</b></span></div><p class="preview-footnote">Illustration only. Before payment fees, taxes, and operating expenses. This is revenue, not profit. Pricing is not yet final.</p>';
     } else {
@@ -298,6 +308,29 @@
   }
   dialogContent.addEventListener('submit', event => {
     if (event.target.matches('.chat-form')) { event.preventDefault(); sendSample($('.chat-form input').value); }
+    if (event.target.matches('.creator-form')) {
+      event.preventDefault();
+      const form = event.target;
+      const nameInput = form.elements.namedItem('coach');
+      const audienceInput = form.elements.namedItem('audience');
+      const name = nameInput.value.trim();
+      const audience = audienceInput.value.trim();
+      if (!name || !audience) {
+        const empty = !name ? nameInput : audienceInput;
+        empty.setCustomValidity('Please add a few words.');
+        empty.reportValidity();
+        empty.addEventListener('input', () => empty.setCustomValidity(''), { once: true });
+        return;
+      }
+      const style = form.elements.namedItem('style').value;
+      dialogContent.innerHTML = '<span class="eyebrow">YOUR COMPANION CONCEPT</span><h2 id="dialog-title">It starts with you.</h2><p>Your content and coaching approach would guide your AI. Here’s a first look at its profile.</p><div class="creator-summary"><span class="eyebrow">AI COMPANION PREVIEW</span><strong id="companion-name"></strong><p id="companion-audience"></p><p id="companion-style"></p></div><button class="pill black" data-dialog="demo">See a sample conversation <span aria-hidden="true">↗</span></button><p class="preview-footnote">This is a local preview. Your companion has not been created, trained, or connected to messaging.</p>';
+      $('#companion-name').textContent = `${name}’s AI`;
+      $('#companion-audience').textContent = `For ${audience.charAt(0).toLowerCase() + audience.slice(1)}`;
+      $('#companion-style').textContent = `Coaching style: ${style.toLowerCase()}.`;
+      dialog.scrollTop = 0;
+      $('#dialog-title').tabIndex = -1;
+      $('#dialog-title').focus({ preventScroll: true });
+    }
   });
   dialogContent.addEventListener('input', event => {
     if (!event.target.matches('.pricing-fields input')) return;
