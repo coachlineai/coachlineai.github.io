@@ -107,14 +107,14 @@
   updateCarousel();
 
   const examples = [
-    { description: 'A warm welcome and a few simple questions. Start with their goals, experience, and what fits their life.', messages: [
+    { messages: [
       ['incoming', 'Hey! I’m your coach’s AI companion. Ready to talk about your goals? 👋'],
       ['outgoing', 'Yes! I want to feel stronger and get into a routine.'],
       ['incoming', 'Love that. How many days a week can you make time to train?'],
       ['outgoing', 'Three days would work for me.'],
       ['incoming', 'A great place to start. Next, let’s talk about your experience and the equipment you have.']
     ]},
-    { description: 'A full session, straight to their messages. Your exercises, sets, reps, and coaching cues in one easy-to-follow plan.', messages: [
+    { messages: [
       ['outgoing', 'Hey coach! What’s on my plan for Tuesday?'],
       ['incoming', 'Tuesday is leg day 💪 Here’s your session.'],
       ['incoming', { type: 'workout', title: 'Tuesday · Leg day', subtitle: '45–60 MIN · SAMPLE WORKOUT', warmup: 'Warm up: 5–10 minutes of easy movement and lighter practice sets.', exercises: [
@@ -127,21 +127,21 @@
       ['incoming', 'Use the weights your coach assigned. Send me a check-in afterward and let me know how it felt.'],
       ['outgoing', 'Got it. Leg day it is 🔥']
     ]},
-    { description: 'A photo makes the conversation personal. Your AI asks about portions and helps clients understand what is on their plate.', messages: [
+    { messages: [
       ['outgoing', { type: 'photo', src: 'assets/demo-salad.webp', alt: 'A casual phone photo of grilled chicken salad with lettuce, cucumber, tomatoes, avocado, and dressing on the side.', caption: 'Here’s my lunch 🥗 How does it look?' }],
       ['incoming', 'Looks like grilled chicken, greens, tomatoes, cucumber, and avocado. How much chicken, avocado, and dressing did you use?'],
       ['outgoing', 'About 150 g of chicken, half an avocado, and a tablespoon of dressing.'],
       ['incoming', 'Thanks! You’ve got protein from the chicken, fiber from the vegetables, and fats from the avocado and dressing. A colorful mix 🙌'],
       ['incoming', 'Those portion details help me understand the meal better than a photo alone. How did you feel after eating it?']
     ]},
-    { description: 'A gym photo becomes a clear explanation and a shortcut to a real exercise demonstration. Try the YouTube link in the chat.', messages: [
+    { messages: [
       ['outgoing', { type: 'photo', src: 'assets/demo-squat-rack.webp', alt: 'A black squat rack with a loaded barbell and a flat bench in front of a white brick wall.', caption: 'What is this equipment for? Can I use it for leg day?' }],
       ['incoming', 'That’s a squat rack with a barbell and a bench. The rack holds the bar for squats, which train your legs and glutes. The bench is used for exercises such as bench presses.'],
       ['incoming', 'For squats, clear the bench out of the way and have a trainer help you set the bar height and appropriate safety supports. Here’s a technique walkthrough 👇'],
       ['incoming', { type: 'video', href: 'https://www.youtube.com/watch?v=Uv_DKDl7EjA', title: 'The Official Squat Form Checklist', source: 'SQUAT UNIVERSITY · YOUTUBE', label: 'Watch the squat tutorial' }],
       ['outgoing', 'Perfect. I’ll watch it before I start 👍']
     ]},
-    { description: 'Keep small wins in the conversation. Reflect on the week, spot what got in the way, and plan the next step.', messages: [
+    { messages: [
       ['incoming', 'Check-in time ✨ How did your week feel?'],
       ['outgoing', 'I made it to all three workouts!'],
       ['incoming', 'That’s a win worth celebrating 🔥 What helped you show up?'],
@@ -236,7 +236,6 @@
       tab.classList.toggle('active', i === index);
     });
     $('#demo-preview').setAttribute('aria-labelledby', `demo-tab-${index}`);
-    $('#demo-description').textContent = examples[index].description;
     demoThread.replaceChildren();
     demoThread.scrollTop = 0;
     examples[index].messages.forEach(([direction, text], i) => {
@@ -255,7 +254,6 @@
       if (next !== undefined) { event.preventDefault(); tabs[next].focus(); playDemo(next); }
     });
   });
-  $('.replay-button').addEventListener('click', () => playDemo());
   playDemo(0, false);
   const demoObserver = new IntersectionObserver(entries => {
     if (entries[0].isIntersecting) { playDemo(); demoObserver.disconnect(); }
@@ -313,104 +311,9 @@
   });
   updateEarnings();
 
-  const dialog = $('#app-dialog');
-  const dialogContent = $('#dialog-content');
-  let replyTimer;
-  const info = {
-    signin: ['CREATOR ACCOUNTS', 'Your coaching home is coming.', 'Creator sign-up and sign-in are part of the next stage of CoachLine. For now, explore the client experience with a sample conversation.'],
-    voice: ['ON THE ROADMAP', 'A familiar voice. More connection.', 'We’re exploring voice notes that reflect a creator’s own voice, with their permission. This preview does not generate or clone voices.'],
-    dashboard: ['ON THE ROADMAP', 'Your coaching, in one place.', 'The planned creator dashboard will bring together your approved content, client conversations, and updates that need your attention. This homepage is the first look at that experience.'],
-    privacy: ['PREVIEW PRIVACY', 'A little clarity.', 'This preview does not create accounts, take payments, upload photos, or send chat messages to an AI service. Information entered into the creator setup and chat previews stays in this browser tab’s memory and is cleared when the page reloads. We have not added analytics or advertising trackers. GitHub Pages hosts the site and may process technical request information under its own privacy statement.'],
-    terms: ['ABOUT THIS PREVIEW', 'Explore what’s next.', 'CoachLine is in development. The conversations and visual examples on this website are scripted demonstrations, not live coaching or individual fitness or medical advice. No subscription is started and no payment is taken. Features and proposed pricing may change before launch.']
-  };
-  function openDialog(type) {
-    clearTimeout(replyTimer);
-    setMobileMenu(false);
-    if (type === 'demo') {
-      dialogContent.innerHTML = '<span class="eyebrow">INTERACTIVE PREVIEW</span><h2 id="dialog-title">Meet your AI companion.</h2><p>A little taste of the CoachLine experience. Pick a topic or type a message.</p><div class="modal-chat" role="log" aria-label="Sample chat" aria-live="polite"></div><div class="suggestions"><button data-prompt="Plan my week">Plan my week ↗</button><button data-prompt="Help with a meal">Help with a meal ↗</button><button data-prompt="Weekly check-in">Weekly check-in ↗</button></div><form class="chat-form"><input name="message" aria-label="Your message" placeholder="Try a message…" maxlength="400" autocomplete="off" required><button type="submit" aria-label="Send message">↑</button></form><p class="preview-footnote">Scripted preview. Live coaching is coming soon.</p>';
-      addMessage($('.modal-chat'), 'incoming', 'Hey! I’m your coach’s AI companion 👋 In this preview, we can explore workouts, meals, or a weekly check-in. What’s on your mind?', false);
-    } else if (type === 'creator') {
-      dialogContent.innerHTML = '<span class="eyebrow">CREATOR SETUP PREVIEW</span><h2 id="dialog-title">Start with your coaching.</h2><p>Give your companion a name and a little direction. See how your coaching style could take shape.</p><form class="creator-form"><label>Your coaching name<input name="coach" placeholder="e.g. Coach Mathias" autocomplete="off" maxlength="60" required></label><label>Who do you coach?<input name="audience" placeholder="e.g. Beginners building strength" autocomplete="off" maxlength="120" required></label><label>Your coaching style<select name="style"><option>Encouraging and supportive</option><option>Direct and focused</option><option>Energetic and motivating</option></select></label><button class="pill black" type="submit">Preview your companion <span aria-hidden="true">↗</span></button></form><p class="preview-footnote">Preview only. No account is created or information saved. Live creator setup is coming.</p>';
-    } else {
-      const [label, title, copy] = info[type] || info.signin;
-      dialogContent.replaceChildren();
-      const eyebrow = document.createElement('span'); eyebrow.className = 'eyebrow'; eyebrow.textContent = label;
-      const heading = document.createElement('h2'); heading.id = 'dialog-title'; heading.textContent = title;
-      const paragraph = document.createElement('p'); paragraph.textContent = copy;
-      const button = document.createElement('button'); button.className = 'pill black'; button.dataset.dialog = 'demo'; button.textContent = 'Try a conversation ↗';
-      dialogContent.append(eyebrow, heading, paragraph, button);
-    }
-    if (!dialog.open) dialog.showModal();
-    dialog.scrollTop = 0;
-    $('.dialog-close').focus({ preventScroll: true });
-  }
-  $('.dialog-close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => clearTimeout(replyTimer));
-  dialog.addEventListener('click', event => {
-    if (event.target === dialog) {
-      const rect = dialog.getBoundingClientRect();
-      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
-    }
-  });
-  function sampleReply(text) {
-    const message = text.toLowerCase();
-    if (/meal|food|lunch|eat|calori|protein/.test(message)) return 'Let’s talk about your meal 🥗 What’s in it, and roughly how much? In the full experience, your coach’s guidance and the details you share would help shape the conversation.';
-    if (/check|week.*went|progress|did.*workout/.test(message)) return 'Check-in time! What went well this week, and what felt difficult? A small win counts. In the planned experience, your coach would be able to review updates that need their attention.';
-    if (/pain|injur|hurt/.test(message)) return 'This is only a scripted preview, so I can’t assess pain or an injury. Stop an activity that hurts and speak with a qualified professional about what’s appropriate for you.';
-    if (/plan|week|workout|gym|train|strong/.test(message)) return 'Let’s start with your goal, how many days you can train, and the equipment you have 💪 The full experience will use your coach’s approved guidance to help you build a routine.';
-    if (/hello|hey|hi\b/.test(message)) return 'Hey! Good to see you 👋 Want to explore planning a workout, talking through a meal, or checking in on your week?';
-    return 'Thanks for sharing! This demo uses scripted replies, so it can’t respond to every question yet. Try “Plan my week,” “Help with a meal,” or “Weekly check-in” to explore the experience.';
-  }
-  function sendSample(text) {
-    const value = text.trim().slice(0, 400);
-    const chat = $('.modal-chat');
-    if (!value || !chat) return;
-    clearTimeout(replyTimer); $('.typing', chat)?.remove();
-    addMessage(chat, 'outgoing', value);
-    const input = $('.chat-form input'); input.value = '';
-    const typing = addMessage(chat, 'incoming', '•••'); typing.classList.add('typing'); typing.setAttribute('aria-label', 'Preparing sample reply');
-    replyTimer = setTimeout(() => {
-      typing.remove();
-      addMessage(chat, 'incoming', sampleReply(value));
-    }, motion() ? 650 : 0);
-  }
-  dialogContent.addEventListener('submit', event => {
-    if (event.target.matches('.chat-form')) { event.preventDefault(); sendSample($('.chat-form input').value); }
-    if (event.target.matches('.creator-form')) {
-      event.preventDefault();
-      const form = event.target;
-      const nameInput = form.elements.namedItem('coach');
-      const audienceInput = form.elements.namedItem('audience');
-      const name = nameInput.value.trim();
-      const audience = audienceInput.value.trim();
-      if (!name || !audience) {
-        const empty = !name ? nameInput : audienceInput;
-        empty.setCustomValidity('Please add a few words.');
-        empty.reportValidity();
-        empty.addEventListener('input', () => empty.setCustomValidity(''), { once: true });
-        return;
-      }
-      const style = form.elements.namedItem('style').value;
-      dialogContent.innerHTML = '<span class="eyebrow">YOUR COMPANION CONCEPT</span><h2 id="dialog-title">It starts with you.</h2><p>Your content and coaching approach would guide your AI. Here’s a first look at its profile.</p><div class="creator-summary"><span class="eyebrow">AI COMPANION PREVIEW</span><strong id="companion-name"></strong><p id="companion-audience"></p><p id="companion-style"></p></div><button class="pill black" data-dialog="demo">See a sample conversation <span aria-hidden="true">↗</span></button><p class="preview-footnote">This is a local preview. Your companion has not been created, trained, or connected to messaging.</p>';
-      $('#companion-name').textContent = `${name}’s AI`;
-      $('#companion-audience').textContent = `For ${audience.charAt(0).toLowerCase() + audience.slice(1)}`;
-      $('#companion-style').textContent = `Coaching style: ${style.toLowerCase()}.`;
-      dialog.scrollTop = 0;
-      $('#dialog-title').tabIndex = -1;
-      $('#dialog-title').focus({ preventScroll: true });
-    }
-  });
   document.addEventListener('click', event => {
-    const target = event.target.closest('button,a');
-    if (!target) return;
-    if (target.dataset.dialog) { event.preventDefault(); openDialog(target.dataset.dialog); }
-    if (target.dataset.prompt) sendSample(target.dataset.prompt);
-    if (target.dataset.demoTab !== undefined) {
-      setMobileMenu(false); playDemo(Number(target.dataset.demoTab));
-      $('#demo').scrollIntoView({ behavior: behavior(), block: 'start' });
-    }
-    if (target.matches('a[href^="#"]')) { setMobileMenu(false); }
-    if (target.dataset.featureLink !== undefined) { event.preventDefault(); goToFeature(Number(target.dataset.featureLink)); }
+    const target = event.target.closest('a');
+    if (target?.matches('a[href^="#"]')) setMobileMenu(false);
   });
   $('#year').textContent = String(new Date().getFullYear());
 })();
