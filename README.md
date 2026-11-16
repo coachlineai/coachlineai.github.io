@@ -30,7 +30,7 @@ The earnings calculator replaces the old comparison section; the three-step sect
 
 ## Interactive conversation examples
 
-The footer uses the same Features, Channels, Earnings, Demo, and FAQs section links as the navbar. The demo phone supports mouse dragging, wheel scrolling, touch scrolling, and keyboard scrolling. Conversation changes reset the thread to the top so photos stay visible and new scripted messages do not interrupt reading.
+The footer keeps its original three link columns and typography. Features, Channels, Earnings, Demo, and FAQs match the navbar labels; the remaining product and legal links keep their original positions. The demo phone supports mouse dragging, wheel scrolling, touch scrolling, and keyboard scrolling. Conversation changes reset the thread to the top so photos stay visible and new scripted messages do not interrupt reading.
 
 - Workout: a Tuesday leg-day example with exercises, sets, reps, warm-up, and rest guidance.
 - Meal: a realistic salad attachment followed by a conversation about visible ingredients and portion details.
