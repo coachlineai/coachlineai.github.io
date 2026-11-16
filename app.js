@@ -18,31 +18,8 @@
   const nav = $('#nav');
   const mobileMenu = $('#mobile-menu');
   const menuToggle = $('.menu-toggle');
-  const shade = $('.nav-shade');
-  const navItems = $$('.nav-item');
-  function closeDropdowns() {
-    navItems.forEach(item => {
-      item.classList.remove('open');
-      $('.nav-trigger', item).setAttribute('aria-expanded', 'false');
-    });
-    nav.classList.remove('dropdown-open');
-    shade.classList.remove('active');
-  }
-  function openDropdown(item) {
-    closeDropdowns();
-    item.classList.add('open');
-    $('.nav-trigger', item).setAttribute('aria-expanded', 'true');
-    nav.classList.add('dropdown-open');
-    shade.classList.add('active');
-  }
-  navItems.forEach(item => {
-    const trigger = $('.nav-trigger', item);
-    trigger.addEventListener('click', event => item.classList.contains('open') && event.detail === 0 ? closeDropdowns() : openDropdown(item));
-    item.addEventListener('pointerenter', event => { if (event.pointerType === 'mouse') openDropdown(item); });
-    item.addEventListener('pointerleave', event => { if (event.pointerType === 'mouse' && !item.contains(document.activeElement)) closeDropdowns(); });
-    item.addEventListener('focusout', () => requestAnimationFrame(() => { if (!item.contains(document.activeElement)) closeDropdowns(); }));
-  });
-  shade.addEventListener('click', closeDropdowns);
+  const sectionLinks = $$('[data-section-link]');
+  const trackedSections = $$('.nav-links a').map(link => $(link.getAttribute('href')));
   function setMobileMenu(open) {
     nav.classList.toggle('mobile-open', open);
     mobileMenu.classList.toggle('open', open);
@@ -50,11 +27,10 @@
     menuToggle.setAttribute('aria-expanded', String(open));
     menuToggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
     document.body.style.overflow = open ? 'hidden' : '';
-    closeDropdowns();
   }
   menuToggle.addEventListener('click', () => setMobileMenu(!mobileMenu.classList.contains('open')));
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') { closeDropdowns(); setMobileMenu(false); }
+    if (event.key === 'Escape') setMobileMenu(false);
   });
 
   document.body.classList.add('js-motion');
@@ -89,23 +65,21 @@
     window.scrollTo({ top: top + offset, behavior: behavior() });
   }
   featureButtons.forEach(button => button.addEventListener('click', () => goToFeature(Number(button.dataset.feature))));
-  const comparison = $('#difference');
-  const afterCard = $('.after-card');
   let ticking = false;
   function updateScroll() {
     nav.classList.toggle('scrolled', scrollY > innerHeight * .1);
+    const currentSection = [...trackedSections].reverse().find(section => section.getBoundingClientRect().top <= 170);
+    sectionLinks.forEach(link => {
+      const active = link.getAttribute('href') === `#${currentSection?.id}`;
+      link.classList.toggle('active', active);
+      if (active) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
+    });
     const featureRect = stage.getBoundingClientRect();
     if (!reduced.matches && featureRect.top <= 1 && featureRect.bottom >= 0) {
       const progress = clamp(-featureRect.top / Math.max(1, stage.offsetHeight - innerHeight), 0, 1);
       const index = Math.min(3, Math.floor(progress * 4));
       if (index !== activeFeature) setFeature(index);
-    }
-    if (motion() && innerWidth > 600) {
-      const rect = comparison.getBoundingClientRect();
-      const progress = clamp((innerHeight * .3 - rect.top) / Math.max(1, comparison.offsetHeight - innerHeight * .7), 0, 1);
-      afterCard.style.setProperty('--compare-x', `${(1 - progress) * 40}%`);
-      afterCard.style.setProperty('--compare-r', `${(1 - progress) * 5}deg`);
-      afterCard.style.setProperty('--draw-offset', String((1 - progress) * 450));
     }
     ticking = false;
   }
@@ -243,6 +217,29 @@
     });
   }));
 
+  const earningsPrice = $('#earnings-price');
+  const earningsClients = $('#earnings-clients');
+  const currency = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  function updateEarnings(normalize = false) {
+    const priceCents = Math.round(clamp(earningsPrice.valueAsNumber || 0, 0, 10000) * 100);
+    const clients = Math.floor(clamp(earningsClients.valueAsNumber || 0, 0, 1000000));
+    const grossCents = priceCents * clients;
+    const creatorCents = Math.round(grossCents * .8);
+    if (normalize) {
+      earningsPrice.value = String(priceCents / 100);
+      earningsClients.value = String(clients);
+    }
+    $('#earnings-gross').textContent = currency.format(grossCents / 100);
+    $('#earnings-share').textContent = currency.format(creatorCents / 100);
+    $('#earnings-platform').textContent = currency.format((grossCents - creatorCents) / 100);
+  }
+  [earningsPrice, earningsClients].forEach(input => {
+    input.addEventListener('input', () => updateEarnings());
+    input.addEventListener('change', () => updateEarnings(true));
+    input.addEventListener('blur', () => updateEarnings(true));
+  });
+  updateEarnings();
+
   const dialog = $('#app-dialog');
   const dialogContent = $('#dialog-content');
   let replyTimer;
@@ -255,14 +252,12 @@
   };
   function openDialog(type) {
     clearTimeout(replyTimer);
-    closeDropdowns(); setMobileMenu(false);
+    setMobileMenu(false);
     if (type === 'demo') {
       dialogContent.innerHTML = '<span class="eyebrow">INTERACTIVE PREVIEW</span><h2 id="dialog-title">Meet your AI companion.</h2><p>A little taste of the CoachLine experience. Pick a topic or type a message.</p><div class="modal-chat" role="log" aria-label="Sample chat" aria-live="polite"></div><div class="suggestions"><button data-prompt="Plan my week">Plan my week ↗</button><button data-prompt="Help with a meal">Help with a meal ↗</button><button data-prompt="Weekly check-in">Weekly check-in ↗</button></div><form class="chat-form"><input name="message" aria-label="Your message" placeholder="Try a message…" maxlength="400" autocomplete="off" required><button type="submit" aria-label="Send message">↑</button></form><p class="preview-footnote">Scripted preview. Live coaching is coming soon.</p>';
       addMessage($('.modal-chat'), 'incoming', 'Hey! I’m your coach’s AI companion 👋 In this preview, we can explore workouts, meals, or a weekly check-in. What’s on your mind?', false);
     } else if (type === 'creator') {
       dialogContent.innerHTML = '<span class="eyebrow">CREATOR SETUP PREVIEW</span><h2 id="dialog-title">Start with your coaching.</h2><p>Give your companion a name and a little direction. See how your coaching style could take shape.</p><form class="creator-form"><label>Your coaching name<input name="coach" placeholder="e.g. Coach Mathias" autocomplete="off" maxlength="60" required></label><label>Who do you coach?<input name="audience" placeholder="e.g. Beginners building strength" autocomplete="off" maxlength="120" required></label><label>Your coaching style<select name="style"><option>Encouraging and supportive</option><option>Direct and focused</option><option>Energetic and motivating</option></select></label><button class="pill black" type="submit">Preview your companion <span aria-hidden="true">↗</span></button></form><p class="preview-footnote">Preview only. No account is created or information saved. Live creator setup is coming.</p>';
-    } else if (type === 'pricing') {
-      dialogContent.innerHTML = '<span class="eyebrow">PROPOSED PRICING</span><h2 id="dialog-title">Your price.<br>Your community.</h2><p>You choose the monthly price. The proposed split is 80% for you and 20% for CoachLine.</p><div class="pricing-fields"><label>MONTHLY PRICE ($)<input id="monthly-price" type="number" min="0" max="10000" step="1" value="15"></label><label>PAYING CLIENTS<input id="client-count" type="number" min="0" max="1000000" step="1" value="300"></label></div><div class="pricing-result" aria-live="polite"><span>YOUR ESTIMATED MONTHLY SHARE</span><strong id="creator-share">$3,600</strong><span>80% OF SUBSCRIPTION REVENUE</span></div><div class="pricing-breakdown"><span>Gross revenue <b id="gross-revenue">$4,500</b></span><span>CoachLine’s share <b id="platform-share">$900</b></span></div><p class="preview-footnote">Illustration only. Before payment fees, taxes, and operating expenses. This is revenue, not profit. Pricing is not yet final.</p>';
     } else {
       const [label, title, copy] = info[type] || info.signin;
       dialogContent.replaceChildren();
@@ -332,16 +327,6 @@
       $('#dialog-title').focus({ preventScroll: true });
     }
   });
-  dialogContent.addEventListener('input', event => {
-    if (!event.target.matches('.pricing-fields input')) return;
-    const amount = clamp(Number($('#monthly-price').value) || 0, 0, 10000);
-    const count = Math.floor(clamp(Number($('#client-count').value) || 0, 0, 1000000));
-    const gross = amount * count;
-    const format = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
-    $('#gross-revenue').textContent = format.format(gross);
-    $('#creator-share').textContent = format.format(gross * .8);
-    $('#platform-share').textContent = format.format(gross * .2);
-  });
   document.addEventListener('click', event => {
     const target = event.target.closest('button,a');
     if (!target) return;
@@ -351,7 +336,7 @@
       setMobileMenu(false); playDemo(Number(target.dataset.demoTab));
       $('#demo').scrollIntoView({ behavior: behavior(), block: 'start' });
     }
-    if (target.matches('a[href^="#"]')) { closeDropdowns(); setMobileMenu(false); }
+    if (target.matches('a[href^="#"]')) { setMobileMenu(false); }
     if (target.dataset.featureLink !== undefined) { event.preventDefault(); goToFeature(Number(target.dataset.featureLink)); }
   });
   $('#year').textContent = String(new Date().getFullYear());
