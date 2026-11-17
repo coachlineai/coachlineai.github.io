@@ -144,3 +144,24 @@ a.footer-cta{display:block}
   .footer-links{flex-direction:column;align-items:center;gap:18px}
   .footer-links a{text-align:center}
 }
+
+/* Keep feature-phone messages at their natural size, with accessible overflow. */
+.feature-visual .chat-phone{display:flex;flex-direction:column}
+.chat-phone .phone-top{flex:0 0 auto}
+.chat-phone .phone-thread{flex:1 1 auto;min-height:0;height:auto;overflow-y:auto;overscroll-behavior-y:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:#777 #171717}
+.chat-phone .phone-thread>*{flex-shrink:0}
+.chat-phone .phone-thread:focus-visible{outline:2px solid var(--yellow);outline-offset:-3px}
+.chat-phone .food-shot{max-width:100%}
+.chat-phone .food-shot>*{flex-shrink:0}
+.chat-phone .msg{overflow-wrap:anywhere}
+.chat-phone .phone-input{position:static;flex-shrink:0;margin:0 16px 12px}
+@media(max-width:600px){.chat-phone .phone-input{margin:0 12px 9px}}
+@media(max-width:600px) and (max-height:760px) and (prefers-reduced-motion:no-preference){
+  .feature-sticky{min-height:0}
+  .feature-left{height:45%;min-height:260px}
+  .feature-right{height:auto;min-height:0}
+}
+@media(min-width:601px) and (max-height:760px) and (prefers-reduced-motion:no-preference){
+  .feature-sticky{min-height:0}
+  .feature-visual-stack{height:min(510px,calc(100svh - 145px))}
+}
