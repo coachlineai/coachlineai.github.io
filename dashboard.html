@@ -1,8 +1,14 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Creator dashboard | CoachLine</title><link rel="stylesheet" href="dashboard.css"></head>
-<body><p class="auth-status" role="status" hidden></p><div id="workspace">
-<aside><strong class="brand">coachline✦</strong><nav aria-label="Dashboard"><a href="#home">Home</a><a href="#analytics">Analytics</a><a href="#store">My coaching page</a></nav><a class="exit" href="signin.html">Exit demo</a></aside>
-<main id="home"><header>Creator workspace · Demo</header><h1>Welcome back, <span id="name">Coach</span>.</h1>
-<div class="columns"><div><section><h2>Recommended actions</h2><details><summary>Preview your coaching page</summary><p>See how your profile looks to a client.</p><a href="#store">View preview →</a></details></section>
-<section id="analytics"><h2>Analytics</h2><p class="period">Last 14 days · Sample data</p><div class="metrics"><div>Page visits<b>128</b></div><div>Total revenue<b>$79.80</b></div><div>Leads<b>24</b></div></div><figure><figcaption>Weekly page visits</figcaption><p>Week 1 · 52 <meter min="0" max="80" value="52">52</meter></p><p>Week 2 · 76 <meter min="0" max="80" value="76">76</meter></p></figure></section></div>
-<section id="store"><h2>Your coaching page</h2><div class="phone"><img src="assets/auth-coaching.webp" alt=""><h3>Personal coaching</h3><p>Workout support and meal tracking</p></div><small>Page preview</small></section></div></main></div></body></html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Home | CoachLine</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="dashboard.css?v=stan1"><script defer src="dashboard.js?v=stan1"></script></head>
+<body><aside><div class="brand"><i>✦</i>Coachline</div><button id="collapse" aria-label="Toggle menu">«</button><button class="search" data-panel="Search">⌕　Search</button><nav aria-label="Creator navigation"></nav><h4>Shortcuts</h4><button data-panel="AutoDM">➤　AutoDM</button><footer><button data-panel="Coachline AI"><b>✦　Coachline AI</b></button><button data-panel="Share & earn">♧　Share &amp; earn</button><button data-panel="Account"><i class="avatar small"></i> kennethokefreaky</button></footer></aside>
+<header><strong>Home</strong><button id="copy" title="Copy demo dashboard link">coachline / kennethokefreaky　▢</button></header>
+<main><div class="content"><h1>Hey kenneth okereke — welcome back!</h1>
+<div class="banner"><strong>Creator <small>MAX</small></strong><span>✓　Custom domains　　 ✓　Team access</span><button data-panel="Upgrade">Upgrade　→</button><button id="dismiss" aria-label="Dismiss banner">×</button></div>
+<h2>☼　Recommended actions</h2>
+<div class="actions"><button class="feature" data-panel="Market your products"><i class="art market"></i><span><strong>Market your products</strong><em>Make a post to highlight your offer on socials</em></span><i class="arrow">→</i></button>
+<button data-panel="Add a product"><i class="art product"></i><span><strong>Add a product</strong><em>Go from idea to product offer in minutes</em></span><i class="arrow">→</i></button>
+<button data-panel="Coachline AI"><i class="art coach"></i><span><strong>Ask Coachline</strong><em>Your very own AI Creator coach</em></span><i class="arrow">→</i></button></div>
+<div class="tools"><div id="ranges" aria-label="Date range"></div><button data-panel="Analytics">See full analytics</button></div>
+<section class="stats" aria-label="Sample analytics"><div id="metrics"></div><div class="chartTools"><button aria-label="Line chart" aria-pressed="true">⌁</button><button aria-label="Bar chart" aria-pressed="false">▥</button></div><div class="plot" aria-label="Sample activity chart"></div><small>Demo analytics</small></section></div>
+<div class="preview"><div class="phone"><i class="avatar"></i><strong id="profile">kenneth okereke</strong><button class="store" data-panel="My Store"><i>✦</i> Build your Coachline Store</button><small>♧　Privacy Policy　 │　◎ EN　⌄</small></div><button class="edit" data-panel="Edit store">✎　Edit store</button></div></main>
+<dialog><button id="close" aria-label="Close">×</button><h2 id="dialogTitle"></h2><div id="details"></div></dialog></body></html>
