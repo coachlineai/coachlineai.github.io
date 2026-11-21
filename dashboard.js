@@ -20,7 +20,7 @@ function field(form,label,value,multiline=false){
   const wrap=node('label',label),input=document.createElement(multiline?'textarea':'input');
   input.required=true;input.value=value;wrap.append(input);form.append(wrap);return input
 }
-function link(kind){const url=new URL('dashboard.html',location.href);url.searchParams.set('view',kind);return url.href}
+function link(kind){if(kind==='coaching')return new URL('matthias.html',location.href).href;const url=new URL('dashboard.html',location.href);url.searchParams.set('view',kind);return url.href}
 async function copy(kind){
  const url=link(kind);
  try{await navigator.clipboard.writeText(url);$('#notice').textContent='Demo link copied';setTimeout(()=>$('#notice').textContent='',2200)}
@@ -39,7 +39,7 @@ function renderQueue(){
 function renderPhone(coach=false){
  phone.replaceChildren();$('#pageTab').setAttribute('aria-pressed',!coach);$('#coachTab').setAttribute('aria-pressed',coach);
  if(!coach){
-  const img=document.createElement('img');img.src='assets/auth-coaching.webp';img.alt='';
+  const img=document.createElement('img');img.src='assets/coach.webp';img.alt='';
   phone.append(img,node('h2',state.title),node('p',state.bio),node('b','$3.99 / week'),action('Join coaching',()=>show('Join coaching'),'primary'));return
  }
  phone.append(node('h2','Try my coach'),node('small','Scripted demo'));
@@ -54,6 +54,7 @@ function editor(title,fields,onSave){
  form.onsubmit=e=>{e.preventDefault();onSave(inputs.map(i=>i.value.trim()));save();modal.close()};panel.append(form)
 }
 function show(name){
+ if(name==='My Page'){location.href='matthias.html';return}
  document.body.classList.remove('menu-open');$('#menu').setAttribute('aria-expanded','false');
  $('#panelTitle').textContent=name;panel.replaceChildren();
  const p=text=>panel.append(node('p',text));
@@ -84,7 +85,7 @@ document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>show(b.dataset
 document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=()=>copy(b.dataset.copy));
 $('#menu').onclick=()=>$('#menu').setAttribute('aria-expanded',document.body.classList.toggle('menu-open'));
 $('[data-home]').onclick=()=>{document.body.classList.remove('menu-open');$('#menu').setAttribute('aria-expanded','false');window.scrollTo(0,0)};
-$('#close').onclick=()=>modal.close();$('#pageTab').onclick=()=>renderPhone();$('#coachTab').onclick=()=>renderPhone(true);
+$('#close').onclick=()=>modal.close();$('#pageTab').onclick=()=>{location.href='matthias.html'};$('#coachTab').onclick=()=>renderPhone(true);
 renderPhone();renderQueue();
 const view=new URLSearchParams(location.search).get('view');
 if(['referral','coaching'].includes(view)){
