@@ -1,0 +1,56 @@
+#income-view { max-width: 1400px; margin: 0 auto; }
+#income-view [hidden] { display: none; }
+.income-top, .activity-tools, .income-filters, .income-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.income-top, .activity-tools { justify-content: space-between; }
+.income-top { margin-bottom: 24px; }
+.income-top h1 { margin: 0; }
+.income-top p { margin: 4px 0 0; color: #65617b; }
+.income-top strong { color: #211c42; }
+.income-mode span { font-size: 13px; color: #646177; }
+#income-sample, .income-detail-link { color: #4934b6; background: #f1efff; border-radius: 10px; padding: 9px 13px; font-weight: 700; }
+.payout-cards { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; }
+.payout-card, .income-box { border: 1px solid #dfdfec; border-radius: 18px; padding: 20px; }
+.payout-card:first-child { background: #f7f6ff; border-color: #cfc9f4; }
+.payout-card h2 { font-size: 15px; color: #5b566f; margin: 0; }
+.payout-card strong { display: block; font-size: clamp(26px,3vw,40px); letter-spacing: -.045em; margin: 8px 0 4px; }
+.payout-card p, .income-empty p { margin: 0; color: #635e76; font-size: 14px; }
+.income-detail-link { margin-top: 12px; }
+.income-box { margin: 20px 0; }
+.activity-tools { gap: 18px; margin-bottom: 18px; }
+.income-switch { display: inline-flex; align-self: center; border-radius: 12px; background: #f5f4fa; padding: 4px; }
+.income-switch button { font-size: 14px; border-radius: 9px; padding: 9px 12px; background: transparent; }
+.income-switch button[aria-pressed=true] { color: #4632a6; background: white; box-shadow: 0 1px 4px #211c4224; font-weight: bold; }
+.income-filters label { font-size: 12px; color: #56506b; margin: 0; }
+.income-filters input, .income-filters select { color: #241d40; background: white; font-size: 14px; }
+.income-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.income-table th { text-align: left; font-size: 12px; color: #625e75; }
+.income-table th, .income-table td { padding: 13px 8px; border-bottom: 1px solid #efedf5; }
+.income-table td small { display: block; color: #726b82; }
+.income-table td button { text-align: left; color: #4632a6; font-weight: 700; padding: 3px 0; }
+.income-table .money { font-variant-numeric: tabular-nums; }
+.badge { display: inline-block; font-size: 12px; font-weight: bold; border-radius: 20px; padding: 4px 10px; }
+.badge-paid, .badge-deposited { color: #166534; background: #dcfce7; }
+.badge-pending { color: #854d0e; background: #fef3c7; }
+.badge-failed { color: #991b1b; background: #fee2e2; }
+.badge-refunded, .badge-scheduled { color: #334155; background: #e2e8f0; }
+.badge-transit { color: #1e40af; background: #dbeafe; }
+.income-empty { border-top: 1px solid #efedf5; padding: 30px 8px 14px; text-align: center; }
+.income-empty strong { display:block; margin-bottom: 5px; }
+.trend h2 { margin: 0 0 12px; }
+.trend p { color: #645e78; font-size: 14px; margin-bottom: 0; }
+.week-line { display: grid; grid-template-columns: 90px 1fr 60px; gap: 14px; align-items: center; font-size: 13px; margin: 12px 0; }
+.week-line i { display:block; background:#7564dd; border-radius:4px; height:12px; }
+#panel dl { margin: 16px 0; }
+#panel dl div { display:flex; justify-content:space-between; gap:15px; padding:8px 0; border-bottom:1px solid #eee; }
+#panel dd { margin:0; text-align:right; }
+@media (max-width:680px) {
+  .payout-cards { grid-template-columns: 1fr; gap: 8px; }
+  .payout-card, .income-box { padding: 15px; }
+  .income-mode { justify-content: space-between; width: 100%; }
+  .income-filters { align-items: end; flex-wrap: nowrap; width: 100%; }
+  .income-filters label:first-child { flex: 1; min-width: 0; }
+  .income-table .wide-only { display: none; }
+  .income-table th, .income-table td { padding: 11px 3px; }
+}
+.compact-date { display: none; }
+@media (max-width:680px) { .compact-date { display: inline; } }
