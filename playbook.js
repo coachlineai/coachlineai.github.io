@@ -95,13 +95,18 @@ export async function initPlaybook(db, owner) {
   function kind() {
     const link=fields.kind.value==='Link';
     $('pb-upload').hidden=link||!!editing;$('pb-link').hidden=!link;
+    fields.guidance.placeholder={
+      Photo:'When a client asks for lunch ideas, introduce this as one of my go-to meals and ask what they like to eat.',
+      Video:'When a client asks about rowing form, introduce this as my demo and tell them which part to watch.',
+      Link:'If a client asks which bands I use, explain why I like them and offer my Shopify product link.'
+    }[fields.kind.value];
     fields.url.required=link;fields.file.required=!link&&!editing;
     fields.file.accept=fields.kind.value==='Photo'?'image/jpeg,image/png,image/webp':'video/mp4,video/quicktime,video/webm';
   }
   function open(item,date=new Date()) {
     editing=item;shareUrl='';formChanged=false;form.reset();$('pb-error').textContent='';$('pb-media').replaceChildren();
     $('pb-editor-title').textContent=item?'Content details':'Add content';
-    fields.title.value=item?.title||'';fields.caption.value=item?.caption||'';
+    fields.title.value=item?.title||'';fields.guidance.value=item?.coach_guidance||'';
     fields.kind.value=item?.kind||'Photo';fields.kind.disabled=!!item;
     fields.topic.value=item?.topic||'Workout';fields.url.value=item?.kind==='Link'?item.asset:'';
     const d=item?.scheduled_at?new Date(item.scheduled_at):new Date(date);
@@ -148,7 +153,7 @@ export async function initPlaybook(db, owner) {
     if(when==='later' && (!Number.isFinite(+date)||(+date<Date.now() && !sameTime))) {
       $('pb-error').textContent='Choose a future time or select Share today.';return;
     }
-    const original=editing, row={title,kind:kindValue,topic:fields.topic.value,caption:fields.caption.value.trim(),scheduled_at:date?.toISOString()||null};
+    const original=editing, row={title,kind:kindValue,topic:fields.topic.value,coach_guidance:fields.guidance.value.trim(),scheduled_at:date?.toISOString()||null};
     let uploaded='';
     busy=true;form.inert=true;
     try {
