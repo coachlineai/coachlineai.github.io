@@ -4,7 +4,7 @@ const choices = {
   adjust: ['When a client misses a workout', 'Ask what happened', 'Offer a shorter session', 'Reschedule'],
   mode: ['Preview channel', 'Text', 'Call']
 };
-const scenarios = ['First conversation', 'Missed workout', 'Meal check-in'];
+const scenarios = ['Greeting', 'Missed workout', 'Meal check-in'];
 const greetings = {
   text: ['What goal are we working toward?', 'How is training going this week?'],
   call: ['What would you like to work on today?', 'How did your last session feel?']
@@ -27,7 +27,7 @@ export async function initCoach(owner, name) {
   const root = document.querySelector('#coach-view');
   const $ = selector => root.querySelector(selector);
   const status = $('#coach-status');
-  const data = {tone:['Motivating'], emoji:'Light', adjust:choices.adjust[1], text:greetings.text[0], call:greetings.call[0], consent:false, audio:null};
+  const data = {styleNotes:'', greetingExample:'', tone:['Motivating'], emoji:'Light', adjust:choices.adjust[1], text:greetings.text[0], call:greetings.call[0], consent:false, audio:null};
   let mode = 'Text', scenario = 0, objectUrl, recorder, database, saving = false;
   const save = $('#save-coach'), publish = $('#publish-coach');
   root.inert = true;
@@ -83,9 +83,16 @@ export async function initCoach(owner, name) {
     }
     line(['Hey, I’m ready to get started.', 'I missed my workout today.', 'Just finished lunch. Can we log it?'][scenario], true);
     const adjustments = {'Ask what happened':'What got in the way today?', 'Offer a shorter session':'Would a shorter version of your session fit today?', Reschedule:'What day would work better for this session?'};
-    const suffix = {None:'',Light:' 💪',Expressive:' 💪🔥'}[data.emoji];
+    // Keep the offline preview neutral when free-form guidance supersedes the presets.
+    if (scenario === 0 && data.greetingExample.trim()) {
+      line(data.greetingExample.trim());
+      return;
+    }
+    const customStyle = Boolean(data.styleNotes.trim());
+    const suffix = customStyle ? '' : {None:'',Light:' 💪',Expressive:' 💪🔥'}[data.emoji];
     const question = [data.text, adjustments[data.adjust], 'What did you eat, and roughly how much?'][scenario];
-    line([...data.tone.map(tone => prompts[tone][scenario]), question].join(' ') + suffix);
+    const openings = customStyle ? [] : data.tone.map(tone => prompts[tone][scenario]);
+    line([...openings, question].join(' ') + suffix);
   }
   for (const [key,[title,...options]] of Object.entries(choices)) {
     const group = document.createElement('fieldset');
@@ -106,6 +113,36 @@ export async function initCoach(owner, name) {
     }
     $('[data-choice="'+key+'"]').append(group);
   }
+  const styleFields = document.createElement('div');
+  const styleHint = document.createElement('small');
+  styleHint.textContent = 'Your notes take priority over personality presets. The offline preview uses neutral wording or your exact sample greeting.';
+  styleHint.id = 'coach-style-hint';
+  for (const [key, title, placeholder] of [
+    ['styleNotes', 'How I talk to clients (optional)', 'What do you usually say to clients? Any words or phrases you avoid?'],
+    ['greetingExample', 'Sample text greeting (optional)', 'Welcome, glad you’re here. What would you like to work on?']
+  ]) {
+    const label = document.createElement('label');
+    label.textContent = title;
+    const field = document.createElement('textarea');
+    field.rows = 2;
+    field.maxLength = key === 'styleNotes' ? 1200 : 400;
+    field.placeholder = placeholder;
+    field.value = data[key];
+    field.setAttribute('aria-describedby', styleHint.id);
+    field.oninput = () => {
+      data[key] = field.value;
+      if (key === 'greetingExample') {
+        scenario = 0;
+        mode = 'Text';
+        $('#coach-scenario').selectedIndex = 0;
+      }
+      changed();
+    };
+    label.append(field);
+    styleFields.append(label);
+  }
+  styleFields.append(styleHint);
+  $('[data-choice="tone"]').after(styleFields);
   for (const key of ['text','call']) {
     const select = $('#'+key+'-intro');
     greetings[key].forEach(v => select.add(new Option(v,v)));
