@@ -32,3 +32,7 @@
     height: auto;
   }
 }
+#avatar-options[hidden],#photo-position[hidden]{display:none}
+#avatar-options img{object-fit:cover;border-radius:10px}
+.visual-actions{display:flex;gap:8px;margin-top:8px}
+.visual-actions [aria-pressed=true]{background:#242326;color:white}

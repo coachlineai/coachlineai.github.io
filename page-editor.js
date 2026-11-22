@@ -1,5 +1,5 @@
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import {renderProfile,platforms,validatePage,phoneNumber} from './profile-render.js';
+import {renderProfile,platforms,validatePage,phoneNumber} from './profile-render.js?v=avatar1';
 const $=s=>document.querySelector(s);let page,draft,dirty=false,busy=false,uploading=0,revision=0;
 const fields=['name','handle','bio','position'];
 const status=text=>$('#status').textContent=text;
@@ -15,7 +15,7 @@ function preview() {
   if (!previewReady || !draft || pendingFrame) return;
   pendingFrame = requestAnimationFrame(() => {
     pendingFrame = 0;
-    renderProfile(draft, previewFrame.contentDocument);
+    renderProfile(draft, previewFrame.contentDocument,page.slug);
   });
 }
 
@@ -26,7 +26,7 @@ previewFrame.addEventListener('load', () => {
   doc.addEventListener('click', event => event.preventDefault());
   preview();
 });
-previewFrame.srcdoc = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="profile.css?v=cms1"></head><body></body></html>';
+previewFrame.srcdoc = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="profile.css?v=avatar1"></head><body></body></html>';
 
 function field(label,value,type='text'){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type=type;input.value=value||'';input.maxLength=type==='url'?1000:60;wrap.append(input);return [wrap,input];}
 function socialRows(){const host=$('#social-links');host.replaceChildren();draft.socials.forEach((s,index)=>{const row=document.createElement('div');row.className='social-row';const label=document.createElement('label');label.textContent='Platform';const select=document.createElement('select');for(const p of platforms){const o=document.createElement('option');o.textContent=p;select.append(o);}select.value=s.platform;label.append(select);row.append(label);select.onchange=()=>{s.platform=select.value;s.label=select.value;socialRows();changed();};for(const [title,key,type] of [['Label','label','text'],['Link','url','url']]){const [wrap,input]=field(title,s[key],type);input.oninput=()=>{s[key]=input.value;changed();};row.append(wrap);}if(s.platform==='Custom'){const [wrap,input]=field('Upload logo','','file');input.accept='image/png,image/jpeg,image/webp';input.onchange=()=>upload(input.files[0],path=>{s.logoPath=path;delete s.logo;});row.append(wrap);}const actions=document.createElement('div');actions.className='row-actions';for(const [text,move] of [['Up',-1],['Down',1]]){const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=index+move<0||index+move>=draft.socials.length;b.onclick=()=>{[draft.socials[index],draft.socials[index+move]]=[draft.socials[index+move],draft.socials[index]];socialRows();changed();};actions.append(b);}const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.onclick=()=>{draft.socials.splice(index,1);socialRows();changed();};actions.append(remove);row.append(actions);host.append(row);});$('#add-social').disabled=draft.socials.length>=12;}
@@ -42,7 +42,18 @@ async function publicContent(){const p=structuredClone(draft);p.phone=phoneNumbe
 }
 $('#editor-form').onsubmit=e=>e.preventDefault();
 $('#editor-form').addEventListener('input',e=>{if(e.target.type==='file'||e.target.closest('.social-row'))return;collect();changed();});
-$('#photo').onchange=e=>upload(e.target.files[0],path=>{draft.imagePath=path;delete draft.image;});
+function visualControls(){
+ const assigned=page.slug==='matthias';
+ const avatar=assigned && draft.visual==='avatar';
+ $('#avatar-options').hidden=!assigned;
+ $('#photo-position').hidden=avatar;
+ $('#use-avatar').setAttribute('aria-pressed',avatar);
+ $('#use-photo').setAttribute('aria-pressed',!avatar);
+}
+for(const [id,visual] of [['use-avatar','avatar'],['use-photo','photo']]){
+ $('#'+id).onclick=()=>{draft.visual=visual;visualControls();changed();};
+}
+$('#photo').onchange=e=>upload(e.target.files[0],path=>{draft.imagePath=path;delete draft.image;draft.visual='photo';visualControls();});
 $('#add-social').onclick=()=>{if(draft.socials.length>=12)return;draft.socials.push({platform:'Instagram',label:'Instagram',url:''});socialRows();changed();};
 $('#save').onclick=async()=>{busy=true;controls();try{await save();$('#error').textContent='';}catch(e){fail(e);}finally{busy=false;controls();}};
 $('#publish').onclick=()=>{try{collect();validatePage(draft);$('#publish-dialog').showModal();}catch(e){fail(e);}};
@@ -50,4 +61,4 @@ $('#cancel-publish').onclick=()=>$('#publish-dialog').close();
 $('#confirm-publish').onclick=async()=>{$('#publish-dialog').close();busy=true;controls();try{collect();validatePage(draft);await save();status('Publishing…');const content=await publicContent();const {error}=await db.rpc('publish_page',{p_id:page.id,p_version:page.version,p_content:content});if(error)throw error;status('Published · Your page is live');$('#error').textContent='';}catch(e){fail(e);status('Publish failed · Review the error before retrying');}finally{busy=false;controls();}};
 for(const mode of ['desktop','mobile'])$('#'+mode).onclick=()=>{$('#preview').classList.toggle('mobile',mode==='mobile');$('#desktop').setAttribute('aria-pressed',mode==='desktop');$('#mobile').setAttribute('aria-pressed',mode==='mobile');};
 window.addEventListener('beforeunload',e=>{if(dirty||uploading){e.preventDefault();e.returnValue='';}});
-try{const user=await requireUser();if(user){protectRestoredPage();page=await accountPage();draft={name:'',handle:'',bio:'',position:0,buttonLabel:'Message my AI coach',phone:'',socials:[],...page.draft};for(const f of fields)$('#'+f).value=draft[f];$('#button-label').value=draft.buttonLabel;$('#phone').value=draft.phone;$('#view-live').href=publicLink(page);socialRows();await previewImages();status('Draft loaded');controls();}}catch(e){fail(e);status('Unable to load page');}
+try{const user=await requireUser();if(user){protectRestoredPage();page=await accountPage();draft={name:'',handle:'',bio:'',position:0,buttonLabel:'Message my AI coach',phone:'',socials:[],...page.draft};for(const f of fields)$('#'+f).value=draft[f];$('#button-label').value=draft.buttonLabel;$('#phone').value=draft.phone;$('#view-live').href=publicLink(page);visualControls();socialRows();await previewImages();status('Draft loaded');controls();}}catch(e){fail(e);status('Unable to load page');}

@@ -7,4 +7,17 @@ export function validatePage(p){if(!p.name?.trim()||p.name.length>80)throw new E
 const icons={Instagram:'<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.6" cy="6.5" r="1" fill="currentColor"/>',TikTok:'<path d="M14 2h3a5 5 0 0 0 5 5v3a8 8 0 0 1-5-1.7V16a6 6 0 1 1-6-6v3a3 3 0 1 0 3 3V2Z" fill="currentColor" stroke="none"/>',YouTube:'<rect x="2" y="5" width="20" height="14" rx="4"/><path d="m10 9 5 3-5 3Z" fill="currentColor"/>',Facebook:'<path d="M14 22V13h3l.5-4H14V6c0-1 1-1 3-1V2h-3c-4 0-4 3-4 5v2H7v4h3v9"/>',X:'<path d="m4 3 16 18M20 3 4 21M4 3h5l11 18h-5Z"/>',Telegram:'<path d="m2 11 20-8-5 18-6-6-4 3 1-6 10-6-9 8Z"/>',WhatsApp:'<path d="M21 11a9 9 0 0 1-13 8l-5 2 1-5A9 9 0 1 1 21 11Z"/><path d="M8 7c0 5 4 9 8 9l1-3-3-1-1 1-2-2 1-1-1-3Z"/>',Website:'<circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/>'};
 export function socialIcon(s){const logo=imageUrl(s.logo);if(logo)return '<img src="'+escapeHtml(logo)+'" alt="">';return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">'+(icons[s.platform]||icons.Website)+'</svg>';}
 export function profileMarkup(p){const e=escapeHtml,img=imageUrl(p.image)||'assets/creator-placeholder.webp',phone=phoneNumber(p.phone),position=Math.max(0,Math.min(100,Number(p.position)||0));return `<main class="profile"><div class="portrait"><img src="${e(img)}" alt="${e(p.name)}" style="object-position:center ${position}%" width="640" height="883"></div><section class="identity"><h1>${e(p.name)}</h1><p class="handle">${e(p.handle)}</p><nav class="socials" aria-label="Social media">${(p.socials||[]).filter(s=>httpsUrl(s.url)).map(s=>`<a href="${e(httpsUrl(s.url))}" target="_blank" rel="noopener noreferrer" aria-label="${e(s.label)}" title="${e(s.label)}">${socialIcon(s)}</a>`).join('')}</nav><p class="bio">${e(p.bio).replaceAll('\n','<br>')}</p></section><section class="contact" aria-label="Start a conversation">${phone?`<a class="message" href="sms:${e(phone)}"><span class="message-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="white"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/></svg></span>${e(p.buttonLabel)}</a><p class="hint">Opens Messages · No app to download</p><a class="number" href="sms:${e(phone)}">Text ${e(phone)}</a>`:'<p class="hint">Add your coaching number to enable messaging.</p>'}</section><footer>Powered by <a href="index.html" aria-label="Coachline home">coachline<span>✦</span></a></footer></main>`;}
-export function renderProfile(p,doc=document){doc.body.innerHTML=profileMarkup(p);const img=imageUrl(p.image)||'assets/creator-placeholder.webp';doc.body.style.setProperty('--profile-image',`url("${img.replaceAll('"','%22')}")`);doc.title=(p.name||'Creator')+' | Coachline';}
+export function renderProfile(p,doc=document,slug=''){
+ const useAvatar = slug==='matthias' && p.visual==='avatar';
+ const previous=doc.querySelector('.portrait[data-avatar]');
+ if (!useAvatar) previous?.disposeAvatar?.();
+ doc.body.innerHTML=profileMarkup(p);
+ if (useAvatar) {
+   const portrait=doc.querySelector('.portrait');
+   if(previous) {previous.querySelector('img').src=portrait.querySelector('img').src;portrait.replaceWith(previous);}
+   else {
+     portrait.dataset.avatar='';
+     import('./avatar.js').then(module=>module.mountAvatar(portrait)).catch(()=>{ /* Keep the profile photo when WebGL is unavailable. */ });
+   }
+ }
+const img=imageUrl(p.image)||'assets/creator-placeholder.webp';doc.body.style.setProperty('--profile-image',`url("${img.replaceAll('"','%22')}")`);doc.title=(p.name||'Creator')+' | Coachline';}

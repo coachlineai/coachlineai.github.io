@@ -23,3 +23,6 @@ footer{text-align:center;padding:38px 20px 28px;font-size:13px;color:#888}footer
 @media(prefers-reduced-motion:reduce){.message,.socials a{transition:none}.message:hover,.message:focus-visible,.socials a:hover{transform:none}}
 
 .socials{flex-wrap:wrap}.socials img{width:24px;height:24px;object-fit:contain}.bio{overflow-wrap:anywhere}h1,.handle{overflow-wrap:anywhere}
+.portrait[data-avatar] .avatar-surface{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y;cursor:grab}
+.portrait[data-avatar] .avatar-surface:active{cursor:grabbing}
+.portrait::after{pointer-events:none}
