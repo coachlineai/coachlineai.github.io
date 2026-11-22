@@ -47,17 +47,32 @@ export async function mountAvatar(portrait) {
     mesh.rotation.y += event.key === 'ArrowLeft' ? -.15 : .15;
     draw();
   };
+  surface.draggable = false;
+  surface.style.userSelect = 'none';
+  surface.ondragstart = event => event.preventDefault();
+  let activePointer = null;
+  let frame = 0;
   let lastX;
-  surface.onpointerdown = event => {lastX = event.clientX; surface.setPointerCapture(event.pointerId);};
+  surface.onpointerdown = event => {
+    if (activePointer !== null || event.button !== 0) return;
+    if (event.pointerType === 'mouse') event.preventDefault();
+    activePointer = event.pointerId;
+    lastX = event.clientX;
+    surface.setPointerCapture(activePointer);
+  };
   surface.onpointermove = event => {
-    if (!surface.hasPointerCapture(event.pointerId)) return;
+    if (event.pointerId !== activePointer) return;
     mesh.rotation.y += (event.clientX - lastX) * .012;
     lastX = event.clientX;
-    draw();
+    if (!frame) frame = requestAnimationFrame(() => {frame = 0; draw();});
   };
+  const endDrag = event => {
+    if (activePointer === event.pointerId) activePointer = null;
+  };
+  surface.onpointerup = surface.onpointercancel = surface.onlostpointercapture = endDrag;
   draw();
   portrait.append(surface);
   const observer = new ResizeObserver(draw);
   observer.observe(portrait);
-  portrait.disposeAvatar = () => {observer.disconnect(); renderer.dispose(); renderer.forceContextLoss();};
+  portrait.disposeAvatar = () => {cancelAnimationFrame(frame); observer.disconnect(); renderer.dispose(); renderer.forceContextLoss();};
 }
