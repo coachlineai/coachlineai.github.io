@@ -5,7 +5,7 @@ function message(text){status.hidden=false;status.textContent=text;}
 function busy(on){form.querySelectorAll('input,button').forEach(e=>e.disabled=on);}
 const callback=new URL('signin.html',location.href).href;
 async function redirectSignedIn(){const {data:{session}}=await db.auth.getSession();if(session&&!recovery){const {data:{user}}=await db.auth.getUser();if(user)location.replace('dashboard.html');}}
-await redirectSignedIn();
+
 window.addEventListener('pageshow',e=>{if(e.persisted)redirectSignedIn();});
 db.auth.onAuthStateChange(event=>{if(event==='PASSWORD_RECOVERY'){recovery=true;if(mode!=='reset')location.replace('reset-password.html');}});
 form.onsubmit=async e=>{e.preventDefault();if(!form.reportValidity())return;busy(true);try{
@@ -21,6 +21,8 @@ form.onsubmit=async e=>{e.preventDefault();if(!form.reportValidity())return;busy
   const {error}=await db.auth.signInWithPassword({email,password});if(error)throw error;location.replace('dashboard.html');
  }
 }catch(e){message(e.message||'Unable to continue. Please try again.');}finally{busy(false);}};
+form.querySelector('[type=submit]').disabled = false;
+redirectSignedIn().catch(() => message('Unable to check your session. You can try signing in again.'));
 $('#toggle-password').onclick=()=>{const p=$('#password');p.type=p.type==='password'?'text':'password';$('#toggle-password').textContent=p.type==='password'?'Show password':'Hide password';};
 $('#forgot-password')?.addEventListener('click',async()=>{const email=$('#email');if(!email.reportValidity())return;try{const {error}=await db.auth.resetPasswordForEmail(email.value.trim(),{redirectTo:new URL('reset-password.html',location.href).href});if(error)throw error;message('If an account exists for that email, you’ll receive a password reset link.');}catch(e){message(e.message);}});
 if(new URLSearchParams(location.search).get('reset')==='success')message('Password updated. Sign in with your new password.');

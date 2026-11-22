@@ -1,5 +1,5 @@
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import {profileMarkup,escapeHtml,platforms,validatePage,phoneNumber,imageUrl} from './profile-render.js';
+import {renderProfile,platforms,validatePage,phoneNumber} from './profile-render.js';
 const $=s=>document.querySelector(s);let page,draft,dirty=false,busy=false,uploading=0,revision=0;
 const fields=['name','handle','bio','position'];
 const status=text=>$('#status').textContent=text;
@@ -7,8 +7,27 @@ function fail(e){$('#error').textContent=e.message||'Something went wrong. Pleas
 function controls(){ $('#save').disabled=!page||busy||uploading>0||!dirty;$('#publish').disabled=!page||busy||uploading>0;$('#fields').disabled=!page||busy; }
 function changed(){dirty=true;revision++;status('Unpublished changes');controls();preview();}
 function collect(){for(const f of fields)draft[f]=$( '#'+f).value;draft.buttonLabel=$('#button-label').value;draft.phone=$('#phone').value;}
-function preview(){const css=new URL('profile.css?v=cms1',location.href).href;const base=new URL('.',location.href).href;$('#preview').srcdoc='<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><base href="'+escapeHtml(base)+'"><link rel="stylesheet" href="'+escapeHtml(css)+'"></head><body>'+profileMarkup(draft)+'</body></html>';}
-$('#preview').onload=()=>{const doc=$('#preview').contentDocument;if(doc){doc.addEventListener('click',e=>e.preventDefault());doc.body.style.setProperty('--profile-image',`url("${(imageUrl(draft.image)||'assets/creator-placeholder.webp').replaceAll('"','%22')}")`);}};
+const previewFrame = $('#preview');
+let previewReady = false;
+let pendingFrame = 0;
+
+function preview() {
+  if (!previewReady || !draft || pendingFrame) return;
+  pendingFrame = requestAnimationFrame(() => {
+    pendingFrame = 0;
+    renderProfile(draft, previewFrame.contentDocument);
+  });
+}
+
+previewFrame.addEventListener('load', () => {
+  const doc = previewFrame.contentDocument;
+  if (!doc.querySelector('link[rel="stylesheet"]')) return;
+  previewReady = true;
+  doc.addEventListener('click', event => event.preventDefault());
+  preview();
+});
+previewFrame.srcdoc = '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="profile.css?v=cms1"></head><body></body></html>';
+
 function field(label,value,type='text'){const wrap=document.createElement('label');wrap.textContent=label;const input=document.createElement('input');input.type=type;input.value=value||'';input.maxLength=type==='url'?1000:60;wrap.append(input);return [wrap,input];}
 function socialRows(){const host=$('#social-links');host.replaceChildren();draft.socials.forEach((s,index)=>{const row=document.createElement('div');row.className='social-row';const label=document.createElement('label');label.textContent='Platform';const select=document.createElement('select');for(const p of platforms){const o=document.createElement('option');o.textContent=p;select.append(o);}select.value=s.platform;label.append(select);row.append(label);select.onchange=()=>{s.platform=select.value;s.label=select.value;socialRows();changed();};for(const [title,key,type] of [['Label','label','text'],['Link','url','url']]){const [wrap,input]=field(title,s[key],type);input.oninput=()=>{s[key]=input.value;changed();};row.append(wrap);}if(s.platform==='Custom'){const [wrap,input]=field('Upload logo','','file');input.accept='image/png,image/jpeg,image/webp';input.onchange=()=>upload(input.files[0],path=>{s.logoPath=path;delete s.logo;});row.append(wrap);}const actions=document.createElement('div');actions.className='row-actions';for(const [text,move] of [['Up',-1],['Down',1]]){const b=document.createElement('button');b.type='button';b.textContent=text;b.disabled=index+move<0||index+move>=draft.socials.length;b.onclick=()=>{[draft.socials[index],draft.socials[index+move]]=[draft.socials[index+move],draft.socials[index]];socialRows();changed();};actions.append(b);}const remove=document.createElement('button');remove.type='button';remove.textContent='Remove';remove.onclick=()=>{draft.socials.splice(index,1);socialRows();changed();};actions.append(remove);row.append(actions);host.append(row);});$('#add-social').disabled=draft.socials.length>=12;}
 async function resolved(content){const p=structuredClone(content);if(p.imagePath){const {data,error}=await db.storage.from('page-drafts').createSignedUrl(p.imagePath,3600);if(error)throw error;p.image=data.signedUrl;}for(const s of p.socials||[]){if(s.logoPath){const {data,error}=await db.storage.from('page-drafts').createSignedUrl(s.logoPath,3600);if(error)throw error;s.logo=data.signedUrl;}}return p;}
