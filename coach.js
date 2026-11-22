@@ -13,7 +13,7 @@ const prompts = {
   Motivating: ['Glad you’re here!', 'One missed day doesn’t erase your progress.', 'Nice job checking in!'],
   Serious: ['Let’s get started.', 'Let’s adjust your plan.', 'Let’s review your meal.'],
   Funny: ['My clipboard and I are ready.', 'Your dumbbells asked if you’re still friends.', 'Time for the lunch report.'],
-  'Playful roast': ['Look who showed up for coaching!', 'Your calendar owes you a rematch.', 'Chef, let’s hear what made the menu.']
+  'Playful roast': ['What’s up, bro! Glad you made it.', 'Your calendar owes you a rematch.', 'Chef, let’s hear what made the menu.']
 };
 function openStorage() {
   return new Promise((resolve, reject) => {
@@ -113,22 +113,9 @@ export async function initCoach(owner, name) {
     }
     $('[data-choice="'+key+'"]').append(group);
   }
-  const styleFields = document.createElement('div');
-  const styleHint = document.createElement('small');
-  styleHint.textContent = 'Your notes take priority over personality presets. The offline preview uses neutral wording or your exact sample greeting.';
-  styleHint.id = 'coach-style-hint';
-  for (const [key, title, placeholder] of [
-    ['styleNotes', 'How I talk to clients (optional)', 'What do you usually say to clients? Any words or phrases you avoid?'],
-    ['greetingExample', 'Sample text greeting (optional)', 'Welcome, glad you’re here. What would you like to work on?']
-  ]) {
-    const label = document.createElement('label');
-    label.textContent = title;
-    const field = document.createElement('textarea');
-    field.rows = 2;
-    field.maxLength = key === 'styleNotes' ? 1200 : 400;
-    field.placeholder = placeholder;
+  for (const key of ['styleNotes', 'greetingExample']) {
+    const field = $('#' + key);
     field.value = data[key];
-    field.setAttribute('aria-describedby', styleHint.id);
     field.oninput = () => {
       data[key] = field.value;
       if (key === 'greetingExample') {
@@ -138,11 +125,7 @@ export async function initCoach(owner, name) {
       }
       changed();
     };
-    label.append(field);
-    styleFields.append(label);
   }
-  styleFields.append(styleHint);
-  $('[data-choice="tone"]').after(styleFields);
   for (const key of ['text','call']) {
     const select = $('#'+key+'-intro');
     greetings[key].forEach(v => select.add(new Option(v,v)));

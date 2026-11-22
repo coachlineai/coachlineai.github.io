@@ -1,5 +1,5 @@
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import { initCoach } from './coach.js';
+import { initCoach } from './coach.js?v=coach-style2';
 import { initIncome } from './income.js?v=info1';
 import { showClients } from './clients.js';
 const $=s=>document.querySelector(s);let user,page,profile;
