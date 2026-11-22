@@ -1,0 +1,18 @@
+#playbook-view{max-width:1560px;margin:auto;--pb-border:#deddeb}
+.pb-top,.pb-tools,.pb-range,.pb-actions{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.pb-top h1,.pb-top h2,.pb-range h2{margin:0}.pb-top p{margin:4px 0 0;color:#66617d}
+.pb-tools{margin:26px 0 16px}.pb-tools label{display:flex;align-items:center;gap:10px;margin:0;font-size:14px;color:#504a68}.pb-tools select{width:auto;background:white}
+.pb-range{border:1px solid var(--pb-border);background:#faf9fe;border-radius:16px 16px 0 0;padding:14px 16px}
+.pb-range button{border:1px solid var(--pb-border);border-radius:9px;padding:7px 12px;margin-left:4px}
+#pb-status:empty{display:none}#pb-status{color:#554b72}#pb-board{border:1px solid var(--pb-border);border-top:0;border-radius:0 0 16px 16px;overflow:hidden}
+.pb-week,.pb-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.pb-day{min-width:0;padding:8px;border-right:1px solid #ebe9f1;border-bottom:1px solid #ebe9f1}
+.pb-week .pb-day{min-height:330px}.pb-month .pb-day{min-height:105px}.pb-current{background:#f5f3ff}.pb-outside{background:#fafafa;color:#777}
+.pb-date{width:100%;display:flex;align-items:center;gap:5px;padding:4px 0 10px;background:transparent}.pb-date span{text-transform:uppercase;font-size:11px;font-weight:700}.pb-date strong{font-size:16px}.pb-date i{font-style:normal;margin-left:auto;color:#736698}.pb-current .pb-date strong{background:#5643d4;border-radius:99px;color:white;padding:1px 6px}
+.pb-item{width:100%;display:grid;gap:4px;overflow:hidden;border:1px solid #e1dcec;border-left:3px solid var(--accent,#7160c9);border-radius:10px;text-align:left;padding:9px;margin:4px 0 8px;background:white;overflow-wrap:anywhere}
+.pb-item[data-topic=Nutrition]{--accent:#278063}.pb-item[data-topic=Promotion]{--accent:#c16228}.pb-item[data-topic=Check-in]{--accent:#347daf}
+.pb-item small{font-weight:700;color:var(--accent,#5744aa)}.pb-item span{font-size:12px;color:#59546b}.pb-item :is(img,video){width:100%;height:85px;object-fit:cover;border-radius:6px}
+.pb-library{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:14px;padding:16px}.pb-empty{grid-column:1/-1;text-align:center;padding:32px 10px}
+#pb-editor{width:min(500px,96vw);max-height:90dvh;overflow:auto}#pb-editor .pb-top{margin-bottom:18px}#pb-close{font-size:24px}#pb-editor [hidden]{display:none}.pb-pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}#pb-editor label{font-weight:700;font-size:14px}#pb-editor label>*{font-weight:400}#pb-help{font-size:13px;color:#655e73}#pb-error{color:#973040}#pb-media :is(img,video){max-height:180px;max-width:100%;border-radius:10px}.pb-actions{justify-content:flex-start}
+@media(max-width:950px){.pb-date{flex-wrap:wrap}.pb-month .pb-item{padding:4px}.pb-month .pb-item span,.pb-month .pb-item small{display:none}}
+@media(max-width:700px){.pb-week{grid-template-columns:1fr}.pb-week .pb-day{min-height:50px}.pb-week .pb-item{max-width:100%}.pb-week .pb-item :is(img,video){height:110px}.pb-month .pb-day{padding:2px;min-height:72px}.pb-month .pb-date{display:grid;gap:0}.pb-month .pb-date span{font-size:9px}.pb-month .pb-date i{display:none}.pb-month .pb-item{font-size:10px}.pb-range h2{font-size:17px}.pb-tools{gap:10px}.pb-range{padding:10px}}

@@ -4,6 +4,7 @@ import { initIncome } from './income.js?v=info1';
 import { showClients } from './clients.js';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
+let playbook;
 function routeDashboard() {
   if (!profile) return;
   const section = location.hash.split('/')[0].slice(1);
@@ -17,6 +18,9 @@ function routeDashboard() {
   $('#sidebar [aria-current]')?.removeAttribute('aria-current');
   const active = view === 'home' ? $('[data-home]') : $('#sidebar [data-open="' + title + '"]');
   active.setAttribute('aria-current','page');
+  if (view === 'playbook') {
+    playbook ??= import('./playbook.js').then(module => module.initPlaybook(db,user.id)).catch(() => {playbook=null; $('#pb-status').textContent='Could not load Playbook. Reopen it to retry.';});
+  }
   if (view === 'clients') showClients();
   document.body.classList.remove('menu-open');
   $('#menu').setAttribute('aria-expanded', 'false');
