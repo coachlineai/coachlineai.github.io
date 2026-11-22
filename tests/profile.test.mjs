@@ -1,0 +1,5 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {profileMarkup,httpsUrl,imageUrl,phoneNumber,validatePage} from '../profile-render.js';
+test('reject unsafe link and image protocols',()=>{for(const u of ['javascript:alert(1)','data:text/html,test','https://user:pass@example.com'])assert.equal(httpsUrl(u),'');assert.equal(imageUrl('https://evil.test/photo.png'),'');});
+test('profile content escapes HTML and drops unsafe social links',()=>{const html=profileMarkup({name:'<script>alert(1)</script>',bio:'<img onerror=alert(1)>',socials:[{url:'javascript:alert(1)'}]});assert.ok(!html.includes('<script>'));assert.ok(!html.includes('href="javascript:'));assert.ok(html.includes('&lt;script&gt;'));});
+test('phone links use validated numbers',()=>{assert.equal(phoneNumber('8567255400'),'+18567255400');assert.equal(phoneNumber('javascript:alert(1)'),'');});
+test('publishing requires complete data',()=>{assert.throws(()=>validatePage({name:'Coach',phone:'',buttonLabel:'Message',socials:[]}));assert.equal(validatePage({name:'Coach',phone:'+18567255400',buttonLabel:'Message',socials:[]}),true);});

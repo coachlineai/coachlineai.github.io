@@ -1,0 +1,1 @@
+{"name":"coachline-site","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs"},"dependencies":{"@supabase/supabase-js":"2.119.2"},"devDependencies":{"esbuild":"0.25.12"}}
