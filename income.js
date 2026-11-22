@@ -98,7 +98,12 @@ export function initIncome() {
     $('payout-cards').innerHTML = cards.map(([label,id,empty]) => {
       const payout = transfers().find(item => item.id === id);
       const caption = payout ? payout.status + ' · ' + dateLabel(payout.date) : empty;
-      return '<section class="payout-card"><h2>' + label + '</h2><strong>' + money(sum(included(id))) +
+      const info = id === 'next' ? `
+        <details class="payout-info">
+          <summary aria-label="How your next payout is calculated"><span aria-hidden="true">i</span></summary>
+          <p class="payout-note">You keep 80% of each payment. Coachline takes 20%. On a $3.99 payment, your share is $3.19 before any processing fees.</p>
+        </details>` : '';
+      return '<section class="payout-card"><div class="payout-heading"><h2>' + label + '</h2>' + info + '</div><strong>' + money(sum(included(id))) +
         '</strong><p>' + caption + '</p>' + (payout ? '<button class="income-detail-link" data-payout="' + id +
         '">View breakdown</button>' : '') + '</section>';
     }).join('');
@@ -156,6 +161,19 @@ export function initIncome() {
     $('activity-filter').replaceChildren(new Option('All statuses',''), ...options.map(name => new Option(name,name)));
     activity();
   }
+
+  document.addEventListener('click', event => {
+    const info = document.querySelector('.payout-info[open]');
+    if (info && !info.contains(event.target)) info.open = false;
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key !== 'Escape') return;
+    const info = document.querySelector('.payout-info[open]');
+    if (info) {
+      info.open = false;
+      info.querySelector('summary').focus();
+    }
+  });
 
   $('income-sample').onclick = () => {
     sample = !sample;

@@ -1,5 +1,5 @@
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import { initIncome } from './income.js?v=split1';
+import { initIncome } from './income.js?v=info1';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
 function routeDashboard() {

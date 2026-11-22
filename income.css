@@ -54,3 +54,39 @@
 }
 .compact-date { display: none; }
 @media (max-width:680px) { .compact-date { display: inline; } }
+
+.payout-heading { display: flex; align-items: center; gap: 4px; position: relative; }
+.payout-info summary {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-block: -4px;
+  list-style: none;
+  color: #69647d;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.payout-info summary::-webkit-details-marker { display: none; }
+.payout-info summary span {
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font: bold 12px/14px Georgia, serif;
+  text-align: center;
+}
+.payout-info summary:hover, .payout-info[open] summary { background: #eeecff; color: #4934b6; }
+.payout-info summary:focus-visible { outline: 2px solid #5846d9; }
+.payout-info .payout-note {
+  position: absolute;
+  z-index: 2;
+  inset: calc(100% + 6px) auto auto 0;
+  width: min(280px, 100%);
+  padding: 12px 14px;
+  background: white;
+  color: #37324a;
+  border: 1px solid #dfdfec;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px #211c4220;
+}
