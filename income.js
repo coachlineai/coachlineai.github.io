@@ -11,6 +11,8 @@ const clients = [
   {name:'Jordan M.', digits:'4821'}, {name:'Taylor R.', digits:'7306'},
   {name:'Alex D.', digits:'2140'}, {name:'', digits:'0198'}
 ];
+const weeklyPriceCents = 399;
+const coachlinePercent = 20;
 const samplePayments = [
   ['2026-11-22',0,'Weekly renewal','Paid','next'],
   ['2026-11-22',1,'First week','Pending',null],
@@ -19,11 +21,13 @@ const samplePayments = [
   ['2026-11-15',0,'Weekly renewal','Paid','current'],
   ['2026-11-14',2,'First week','Paid','current'],
   ['2026-11-08',0,'First week','Paid','previous']
-].map(([date, client, type, status, payout]) => ({
-  date, client:clients[client], type, status, payout,
-  paid:['Paid','Refunded'].includes(status) ? 399 : 0,
-  earnings:status === 'Paid' ? 319 : 0
-}));
+].map(([date, client, type, status, payout]) => {
+  const paid = ['Paid','Refunded'].includes(status) ? weeklyPriceCents : 0;
+  const refunded = status === 'Refunded' ? paid : 0;
+  const retained = paid - refunded;
+  const fee = Math.round(retained * coachlinePercent / 100);
+  return {date, client:clients[client], type, status, payout, paid, refunded, fee, earnings:retained - fee};
+});
 const payouts = [
   {id:'next', date:'2026-11-30', status:'Scheduled'},
   {id:'current', date:'2026-11-23', status:'On the way'},
@@ -34,7 +38,7 @@ const payoutStates = ['Scheduled','On the way','Deposited','Failed'];
 const badge = state => '<span class="badge badge-' +
   (state === 'On the way' ? 'transit' : state.toLowerCase()) + '">' + esc(state) + '</span>';
 const clientName = client => client.name || 'Client ending in ' + client.digits;
-const sum = rows => rows.reduce((total, item) => total + item.earnings, 0);
+const sum = (rows, field = 'earnings') => rows.reduce((total, item) => total + item[field], 0);
 
 export function initIncome() {
   const $ = id => document.getElementById(id);
@@ -64,8 +68,10 @@ export function initIncome() {
     const items = included(payout.id);
     openDetail('Sample payout details', [
       ['Status',payout.status], ['Arrival' + (payout.status === 'Deposited' ? '' : ' estimate'),dateLabel(payout.date)],
-      ...items.map(row => [clientName(row.client) + ' · ' + dateLabel(row.date),money(row.earnings)]),
-      ['Creator payout',money(sum(items))]
+      ...items.map(row => [clientName(row.client) + ' · ' + dateLabel(row.date),money(row.paid)]),
+      ['Clients paid',money(sum(items, 'paid'))],
+      ['Coachline fee (20%)',money(sum(items, 'fee'))],
+      ['Your payout (80%)',money(sum(items))]
     ]);
   }
 
@@ -76,9 +82,9 @@ export function initIncome() {
       ['Date',dateLabel(row.date)], ['Plan',row.type + ' · $3.99/week'], ['Status',row.status],
       ['Amount paid',money(row.paid)]
     ];
-    if (row.status === 'Refunded') entries.push(['Refund',money(row.paid)]);
-    if (row.status === 'Paid') entries.push(['Illustrative platform share',money(row.paid - row.earnings)]);
-    entries.push(['Creator earnings',money(row.earnings)], ['Payout',payout ? payout.status + ' · ' + dateLabel(payout.date) : 'No payout assigned']);
+    if (row.status === 'Refunded') entries.push(['Refund',money(row.refunded)]);
+    entries.push(['Coachline fee (20%)',money(row.fee)]);
+    entries.push(['Your earnings (80%)',money(row.earnings)], ['Payout',payout ? payout.status + ' · ' + dateLabel(payout.date) : 'No payout assigned']);
     openDetail('Sample payment details', entries);
   }
 
@@ -120,15 +126,15 @@ export function initIncome() {
           'Transfers to your bank will appear here.') + '</p></div>';
       return;
     }
-    const columns = isPayments ? ['Client','Date','Payment type','Amount paid','Your earnings','Status'] :
+    const columns = isPayments ? ['Client','Date','Payment type','Client paid','Coachline fee (20%)','Your earnings (80%)','Status'] :
       ['Payout','Amount','Status'];
-    const wide = i => isPayments && i >= 1 && i <= 3 ? 'wide-only' : '';
+    const wide = i => isPayments && i >= 1 && i <= 4 ? 'wide-only' : '';
     const rows = results.map((row,index) => {
       const cells = isPayments ? [
         '<button data-entry="' + index + '">' + esc(clientName(row.client)) + '</button><small>' +
         (row.client.name ? '•• ' + esc(row.client.digits) : '') + '<span class="compact-date">' +
         (row.client.name ? ' · ' : '') + dateLabel(row.date) + '</span></small>',
-        dateLabel(row.date), esc(row.type), money(row.paid), money(row.earnings), badge(row.status)
+        dateLabel(row.date), esc(row.type), money(row.paid), money(row.fee), money(row.earnings), badge(row.status)
       ] : ['<button data-entry="' + index + '">' + dateLabel(row.date) + '</button>',money(sum(included(row.id))),badge(row.status)];
       return '<tr>' + cells.map((cell,i) => '<td class="' + wide(i) + '">' + cell + '</td>').join('') + '</tr>';
     });
