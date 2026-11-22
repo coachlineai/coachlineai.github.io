@@ -1,0 +1,16 @@
+#coach-view{max-width:1260px;margin:auto}
+.coach-bar,.coach-buttons,.coach-preview-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.coach-bar{margin-bottom:24px}.coach-bar h1,.coach-preview h2,.coach-card h2{margin:0}
+.coach-bar p,.coach-card p,.coach-preview small{color:#656178}.coach-bar p{margin:4px 0}
+.coach-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:22px;align-items:start}
+.coach-settings{display:grid;gap:16px;max-height:calc(100dvh - 195px);overflow:auto;padding:3px 8px 8px 3px}
+.coach-card,.coach-preview{border:1px solid #dfddeb;border-radius:18px;padding:clamp(16px,2vw,28px)}
+.coach-card p{margin:5px 0 16px}.coach-card label,.coach-card fieldset{margin-top:15px}
+.coach-card fieldset,.coach-preview fieldset{padding:0;border:0;margin-inline:0}
+#coach-view legend{font-weight:bold;margin-bottom:8px}#coach-view fieldset button,.coach-upload{padding:8px 13px;border-radius:12px;border:1px solid #dcd9e7;margin:3px}
+#coach-view fieldset button[aria-pressed=true]{background:#eeeaff;border-color:#6753d8;color:#403099}
+.coach-preview{background:#faf9ff}.coach-conversation{margin:18px 0;background:white;border:1px solid #e3dfef;border-radius:16px;padding:18px;min-height:230px}.coach-conversation strong{display:block;border-bottom:1px solid #eceaf3;padding-bottom:12px}.coach-conversation p{background:#f1eef9;border-radius:13px;padding:11px 14px;width:fit-content;max-width:92%}.coach-conversation .client-line{margin-left:auto;background:#5846d9;color:white}
+.coach-buttons{justify-content:flex-start}.coach-consent{display:flex;align-items:center;gap:8px}.coach-consent input{width:auto}.coach-card .coach-upload{margin:0;position:relative;overflow:hidden;cursor:pointer}.coach-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}.coach-upload:focus-within{outline:2px solid #6753d8}
+#coach-view audio{width:100%;margin-top:12px}#coach-view button:disabled{opacity:.5;cursor:default}
+#coach-next{background:#eeebff;padding:14px 18px;border-radius:12px;margin-bottom:16px}#coach-next a,#coach-next button{margin:3px 8px}#coach-next button{background:transparent;text-decoration:underline}
+@media(max-width:950px){.coach-grid{grid-template-columns:1fr}.coach-settings{max-height:none;overflow:visible;padding:0}.coach-preview{grid-row:1}.coach-conversation{min-height:0}}
