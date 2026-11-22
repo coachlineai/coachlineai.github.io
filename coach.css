@@ -14,3 +14,7 @@
 #coach-view audio{width:100%;margin-top:12px}#coach-view button:disabled{opacity:.5;cursor:default}
 #coach-next{background:#eeebff;padding:14px 18px;border-radius:12px;margin-bottom:16px}#coach-next a,#coach-next button{margin:3px 8px}#coach-next button{background:transparent;text-decoration:underline}
 @media(max-width:950px){.coach-grid{grid-template-columns:1fr}.coach-settings{max-height:none;overflow:visible;padding:0}.coach-preview{grid-row:1}.coach-conversation{min-height:0}}
+.coach-phone-test{text-align:center}.coach-phone-test p{color:#605c74}.coach-phone-test small{display:block}
+#coach-qr{width:min(210px,100%);margin:20px auto;background:white;border:1px solid #dedbea;border-radius:16px;padding:6px}
+#coach-qr svg{width:100%;height:auto;display:block}#coach-message{display:inline-block;text-decoration:none;padding:12px 24px}
+#coach-number{font-variant-numeric:tabular-nums;margin:8px 0 18px}

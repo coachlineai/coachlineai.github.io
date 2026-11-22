@@ -1,5 +1,5 @@
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import { initCoach } from './coach.js?v=coach-style2';
+import { initCoach } from './coach.js?v=coach-phone1';
 import { initIncome } from './income.js?v=info1';
 import { showClients } from './clients.js';
 const $=s=>document.querySelector(s);let user,page,profile;
@@ -36,4 +36,4 @@ try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, re
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
 page = ownedPage;
-if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;const phone=$('#phone');phone.replaceChildren(node('h2',page.draft.name||profile.full_name),node('p',page.draft.bio||'Make this page your own. Add your photo, links, and coaching number.'));const a=node('a','Edit my page');a.href='page-editor.html';a.className='primary';phone.append(a);$('#queue').textContent='No connected conversations yet.';initIncome();initCoach(user.id,page.draft.name||profile.full_name);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
+if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;const phone=$('#phone');phone.replaceChildren(node('h2',page.draft.name||profile.full_name),node('p',page.draft.bio||'Make this page your own. Add your photo, links, and coaching number.'));const a=node('a','Edit my page');a.href='page-editor.html';a.className='primary';phone.append(a);$('#queue').textContent='No connected conversations yet.';initIncome();initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}

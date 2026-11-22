@@ -1,19 +1,13 @@
+import qrCode from './vendor/coach-qr.js';
+import {phoneNumber} from './profile-render.js';
 const choices = {
   tone: ['Personalities · Select any combination', 'Motivating', 'Serious', 'Funny', 'Playful roast'],
   emoji: ['Emoji use', 'None', 'Light', 'Expressive'],
-  adjust: ['When a client misses a workout', 'Ask what happened', 'Offer a shorter session', 'Reschedule'],
-  mode: ['Preview channel', 'Text', 'Call']
+  adjust: ['When a client misses a workout', 'Ask what happened', 'Offer a shorter session', 'Reschedule']
 };
-const scenarios = ['Greeting', 'Missed workout', 'Meal check-in'];
 const greetings = {
   text: ['What goal are we working toward?', 'How is training going this week?'],
   call: ['What would you like to work on today?', 'How did your last session feel?']
-};
-const prompts = {
-  Motivating: ['Glad you’re here!', 'One missed day doesn’t erase your progress.', 'Nice job checking in!'],
-  Serious: ['Let’s get started.', 'Let’s adjust your plan.', 'Let’s review your meal.'],
-  Funny: ['My clipboard and I are ready.', 'Your dumbbells asked if you’re still friends.', 'Time for the lunch report.'],
-  'Playful roast': ['What’s up, bro! Glad you made it.', 'Your calendar owes you a rematch.', 'Chef, let’s hear what made the menu.']
 };
 function openStorage() {
   return new Promise((resolve, reject) => {
@@ -23,13 +17,26 @@ function openStorage() {
     request.onerror = () => reject(request.error);
   });
 }
-export async function initCoach(owner, name) {
+export async function initCoach(owner, phone) {
   const root = document.querySelector('#coach-view');
   const $ = selector => root.querySelector(selector);
   const status = $('#coach-status');
   const data = {styleNotes:'', greetingExample:'', tone:['Motivating'], emoji:'Light', adjust:choices.adjust[1], text:greetings.text[0], call:greetings.call[0], consent:false, audio:null};
-  let mode = 'Text', scenario = 0, objectUrl, recorder, database, saving = false;
+  let objectUrl, recorder, database, saving = false;
   const save = $('#save-coach'), publish = $('#publish-coach');
+  const number = phoneNumber(phone);
+  if (number) {
+    const destination = 'sms:' + number;
+    const code = qrCode(0, 'M');
+    code.addData(destination);
+    code.make();
+    $('#coach-qr').innerHTML = code.createSvgTag({cellSize:6, margin:24, scalable:true});
+    $('#coach-message').href = destination;
+    $('#coach-number').textContent = number;
+    $('#coach-contact').hidden = false;
+  } else {
+    $('#coach-no-number').hidden = false;
+  }
   root.inert = true;
   try {
     database = await openStorage();
@@ -57,42 +64,9 @@ export async function initCoach(owner, name) {
   function render() {
     for (const button of root.querySelectorAll('[data-option]')) {
       const key = button.closest('[data-choice]').dataset.choice;
-      const selected = key === 'tone' ? data.tone.includes(button.dataset.option) : button.dataset.option === (key === 'mode' ? mode : data[key]);
+      const selected = key === 'tone' ? data.tone.includes(button.dataset.option) : button.dataset.option === data[key];
       button.setAttribute('aria-pressed', selected);
     }
-    const call = mode === 'Call';
-    $('#coach-name').textContent = name + ' · AI coach';
-    $('#scenario-label').hidden = call;
-    const chat = $('#coach-chat');
-    chat.replaceChildren();
-    function line(text, client = false) {
-      const p = document.createElement('p');
-      if (client) p.className = 'client-line';
-      p.textContent = text;
-      chat.append(p);
-    }
-    if (call) {
-      line('Hey, this is ' + name + '’s AI coach. ' + data.call);
-      if (objectUrl) {
-        const playback = document.createElement('audio');
-        playback.controls = true;
-        playback.src = objectUrl;
-        chat.append('Your recorded sample', playback);
-      } else line('Add your voice sample to hear it here.');
-      return;
-    }
-    line(['Hey, I’m ready to get started.', 'I missed my workout today.', 'Just finished lunch. Can we log it?'][scenario], true);
-    const adjustments = {'Ask what happened':'What got in the way today?', 'Offer a shorter session':'Would a shorter version of your session fit today?', Reschedule:'What day would work better for this session?'};
-    // Keep the offline preview neutral when free-form guidance supersedes the presets.
-    if (scenario === 0 && data.greetingExample.trim()) {
-      line(data.greetingExample.trim());
-      return;
-    }
-    const customStyle = Boolean(data.styleNotes.trim());
-    const suffix = customStyle ? '' : {None:'',Light:' 💪',Expressive:' 💪🔥'}[data.emoji];
-    const question = [data.text, adjustments[data.adjust], 'What did you eat, and roughly how much?'][scenario];
-    const openings = customStyle ? [] : data.tone.map(tone => prompts[tone][scenario]);
-    line([...openings, question].join(' ') + suffix);
   }
   for (const [key,[title,...options]] of Object.entries(choices)) {
     const group = document.createElement('fieldset');
@@ -103,8 +77,7 @@ export async function initCoach(owner, name) {
       const b = document.createElement('button');
       b.textContent = b.dataset.option = value;
       b.onclick = () => {
-        if (key === 'mode') { mode = value; render(); }
-        else if (key === 'tone') {
+        if (key === 'tone') {
           data.tone = data.tone.includes(value) ? data.tone.filter(tone => tone !== value) : [...data.tone, value];
           changed();
         } else { data[key] = value; changed(); }
@@ -118,11 +91,6 @@ export async function initCoach(owner, name) {
     field.value = data[key];
     field.oninput = () => {
       data[key] = field.value;
-      if (key === 'greetingExample') {
-        scenario = 0;
-        mode = 'Text';
-        $('#coach-scenario').selectedIndex = 0;
-      }
       changed();
     };
   }
@@ -132,9 +100,6 @@ export async function initCoach(owner, name) {
     select.value = data[key];
     select.onchange = () => { data[key] = select.value; changed(); };
   }
-  const scenarioSelect = $('#coach-scenario');
-  scenarios.forEach(v => scenarioSelect.add(new Option(v,v)));
-  scenarioSelect.onchange = () => { scenario = scenarioSelect.selectedIndex; render(); };
   const consent = $('#voice-consent'), upload = $('#voice-file'), record = $('#record-coach');
   const player = $('#voice-audio'), voiceStatus = $('#voice-state');
   function refreshVoice() {
@@ -206,6 +171,6 @@ export async function initCoach(owner, name) {
   }
   save.onclick = () => persist(false);
   publish.onclick = () => persist(true);
-  $('#keep-testing').onclick = () => {$('#coach-next').hidden = true; mode='Text'; render(); scenarioSelect.focus();};
+  $('#keep-testing').onclick = () => {$('#coach-next').hidden = true; (number ? $('#coach-message') : $('#coach-no-number a')).focus();};
   refreshVoice(); render();
 }
