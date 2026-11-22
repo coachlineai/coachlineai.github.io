@@ -1,5 +1,5 @@
 const choices = {
-  tone: ['Personality', 'Motivating', 'Serious', 'Funny', 'Playful roast'],
+  tone: ['Personalities · Select any combination', 'Motivating', 'Serious', 'Funny', 'Playful roast'],
   emoji: ['Emoji use', 'None', 'Light', 'Expressive'],
   adjust: ['When a client misses a workout', 'Ask what happened', 'Offer a shorter session', 'Reschedule'],
   mode: ['Preview channel', 'Text', 'Call']
@@ -27,7 +27,7 @@ export async function initCoach(owner, name) {
   const root = document.querySelector('#coach-view');
   const $ = selector => root.querySelector(selector);
   const status = $('#coach-status');
-  const data = {tone:'Motivating', emoji:'Light', adjust:choices.adjust[1], text:greetings.text[0], call:greetings.call[0], consent:false, audio:null};
+  const data = {tone:['Motivating'], emoji:'Light', adjust:choices.adjust[1], text:greetings.text[0], call:greetings.call[0], consent:false, audio:null};
   let mode = 'Text', scenario = 0, objectUrl, recorder, database, saving = false;
   const save = $('#save-coach'), publish = $('#publish-coach');
   root.inert = true;
@@ -40,6 +40,8 @@ export async function initCoach(owner, name) {
     });
     if (saved) {
       Object.assign(data,saved);
+      const storedTones = Array.isArray(data.tone) ? data.tone : [data.tone];
+      data.tone = choices.tone.slice(1).filter(tone => storedTones.includes(tone));
       status.textContent = 'Saved preview on this device';
     }
   } catch {
@@ -55,7 +57,8 @@ export async function initCoach(owner, name) {
   function render() {
     for (const button of root.querySelectorAll('[data-option]')) {
       const key = button.closest('[data-choice]').dataset.choice;
-      button.setAttribute('aria-pressed', button.dataset.option === (key === 'mode' ? mode : data[key]));
+      const selected = key === 'tone' ? data.tone.includes(button.dataset.option) : button.dataset.option === (key === 'mode' ? mode : data[key]);
+      button.setAttribute('aria-pressed', selected);
     }
     const call = mode === 'Call';
     $('#coach-name').textContent = name + ' · AI coach';
@@ -81,7 +84,8 @@ export async function initCoach(owner, name) {
     line(['Hey, I’m ready to get started.', 'I missed my workout today.', 'Just finished lunch. Can we log it?'][scenario], true);
     const adjustments = {'Ask what happened':'What got in the way today?', 'Offer a shorter session':'Would a shorter version of your session fit today?', Reschedule:'What day would work better for this session?'};
     const suffix = {None:'',Light:' 💪',Expressive:' 💪🔥'}[data.emoji];
-    line(prompts[data.tone][scenario] + ' ' + [data.text,adjustments[data.adjust],'What did you eat, and roughly how much?'][scenario] + suffix);
+    const question = [data.text, adjustments[data.adjust], 'What did you eat, and roughly how much?'][scenario];
+    line([...data.tone.map(tone => prompts[tone][scenario]), question].join(' ') + suffix);
   }
   for (const [key,[title,...options]] of Object.entries(choices)) {
     const group = document.createElement('fieldset');
@@ -93,7 +97,10 @@ export async function initCoach(owner, name) {
       b.textContent = b.dataset.option = value;
       b.onclick = () => {
         if (key === 'mode') { mode = value; render(); }
-        else { data[key] = value; changed(); }
+        else if (key === 'tone') {
+          data.tone = data.tone.includes(value) ? data.tone.filter(tone => tone !== value) : [...data.tone, value];
+          changed();
+        } else { data[key] = value; changed(); }
       };
       group.append(b);
     }
