@@ -1,9 +1,33 @@
+import qrCode from './vendor/coach-qr.js';
+import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
 import { initCoach } from './coach.js?v=voice1';
 import { initIncome } from './income.js?v=info1';
 import { showClients } from './clients.js';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
+function renderMessageCard(rawPhone) {
+  const card = $('#phone');
+  const number = phoneNumber(rawPhone);
+  if (!number) {
+    const setup = node('a', 'Add your coaching number');
+    setup.href = 'page-editor.html';
+    card.replaceChildren(setup);
+    return;
+  }
+  const destination = 'sms:' + number;
+  const code = qrCode(0, 'M');
+  code.addData(destination);
+  code.make();
+  const graphic = node('div', '');
+  graphic.setAttribute('role', 'img');
+  graphic.setAttribute('aria-label', 'Scan to message your coach');
+  graphic.innerHTML = code.createSvgTag({cellSize: 6, margin: 24});
+  const message = node('a', 'Message my coach');
+  message.href = destination;
+  message.className = 'primary';
+  card.replaceChildren(graphic, message);
+}
 let playbook;
 function routeDashboard() {
   if (!profile) return;
@@ -40,4 +64,4 @@ try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, re
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
 page = ownedPage;
-if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;const phone=$('#phone');phone.replaceChildren(node('h2',page.draft.name||profile.full_name),node('p',page.draft.bio||'Make this page your own. Add your photo, links, and coaching number.'));const a=node('a','Edit my page');a.href='page-editor.html';a.className='primary';phone.append(a);$('#queue').textContent='No connected conversations yet.';initIncome();initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
+if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initIncome();initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
