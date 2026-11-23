@@ -21,3 +21,13 @@
 .stripe-row strong{font-size:30px;color:#635bff;letter-spacing:-2px}
 .checkout-settings label{margin-top:12px}.checkout-settings select{max-width:300px}
 @media(max-width:660px){.settings-grid{grid-template-columns:1fr}.settings-tabs a{padding:10px}.settings-tabs{gap:5px}}
+.channel-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+.channel-name{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.channel-logo{width:36px;height:36px;flex:none;color:white;padding:4px;border-radius:10px}
+.logo-instagram{background:linear-gradient(35deg,#ffbc54,#da2375 50%,#674bc3)}
+.logo-whatsapp{background:#158751}.logo-telegram{background:#007faf;border-radius:50%}
+.channel-grid .channel-cta{display:block;background:var(--violet);color:white;font-weight:700;text-decoration:none;border-radius:24px;padding:11px 14px;text-align:center;list-style:none}
+.channel-cta::-webkit-details-marker{display:none}
+.channel-grid .integration-request{justify-content:center;text-align:center}
+@media(max-width:1150px){.channel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.channel-grid{grid-template-columns:1fr}}
