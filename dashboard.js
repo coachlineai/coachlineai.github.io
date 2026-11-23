@@ -19,7 +19,7 @@ function routeDashboard() {
   const active = view === 'home' ? $('[data-home]') : $('#sidebar [data-open="' + title + '"]');
   active.setAttribute('aria-current','page');
   if (view === 'playbook') {
-    playbook ??= import('./playbook.js?v=guidance1').then(module => module.initPlaybook(db,user.id)).catch(() => {playbook=null; $('#pb-status').textContent='Could not load Playbook. Reopen it to retry.';});
+    playbook ??= import('./playbook.js?v=delete1').then(module => module.initPlaybook(db,user.id)).catch(() => {playbook=null; $('#pb-status').textContent='Could not load Playbook. Reopen it to retry.';});
   }
   if (view === 'clients') showClients();
   document.body.classList.remove('menu-open');

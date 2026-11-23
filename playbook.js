@@ -12,7 +12,7 @@ function element(tag,text,cls) {
   return el;
 }
 export async function initPlaybook(db, owner) {
-  const store=db.storage.from('playbook-media'), table=()=>db.from('playbook_items');
+  const store=db.storage.from('playbook-media'), table=()=>db.from('post');
   const board=$('pb-board'), dialog=$('pb-editor'), form=$('pb-form'), fields=form.elements;
   let formChanged=false;
   let items=[], view='week', anchor=new Date(), editing=null, shareUrl='', busy=false;
@@ -44,8 +44,52 @@ export async function initPlaybook(db, owner) {
     button.draggable=true;
     button.ondragstart=e=>e.dataTransfer.setData('application/x-coachline-item',item.id);
     button.onclick=()=>open(item);
-    return button;
+    const wrapper=element('div','','pb-card-wrap');
+    const remove=element('button','×','pb-remove');
+    remove.type='button';
+    remove.setAttribute('aria-label','Delete '+item.title);
+    remove.onclick=()=>confirmRemoval(item);
+    wrapper.append(button,remove);
+    return wrapper;
   }
+  const confirmation=$('pb-delete');
+  const cancel=$('pb-delete-cancel'), confirm=$('pb-delete-confirm');
+  let pendingRemoval=null;
+  function confirmRemoval(item) {
+    pendingRemoval=item;
+    $('pb-delete-detail').textContent='Are you sure you want to delete “'+item.title+'”? This removes it from your calendar and library.';
+    $('pb-delete-error').textContent='';
+    confirmation.showModal();
+    cancel.focus();
+  }
+  cancel.onclick=()=>confirmation.close();
+  confirmation.addEventListener('cancel',event=>{if(confirm.disabled)event.preventDefault();});
+  confirm.onclick=async()=>{
+    const item=pendingRemoval;
+    if(!item||confirm.disabled)return;
+    cancel.disabled=confirm.disabled=true;
+    $('pb-delete-error').textContent='';
+    try {
+      const {error}=await table().delete().eq('id',item.id).eq('owner_id',owner).select('id');
+      if(error)throw error;
+      items=items.filter(other=>other.id!==item.id);
+      confirmation.close();render();$('pb-add').focus();
+      $('pb-status').textContent='“'+item.title+'” deleted.';
+      if(item.kind!=='Link'&&!items.some(other=>other.asset===item.asset)){
+        media.delete(item.asset);
+        try {
+          const {error:mediaError}=await store.remove([item.asset]);
+          if(mediaError)throw mediaError;
+        } catch {
+          $('pb-status').textContent='Post deleted. Its uploaded file could not be removed from storage.';
+        }
+      }
+    } catch {
+      $('pb-delete-error').textContent='Could not delete this post. Please try again.';
+    } finally {
+      cancel.disabled=confirm.disabled=false;
+    }
+  };
   function render() {
     const today=dayKey(new Date()), month=view==='month';
     board.replaceChildren(); board.className='pb-'+view;
