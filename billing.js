@@ -1,0 +1,79 @@
+import {db} from './supabase-client.js';
+
+export async function initBilling(user, updateIncome) {
+  const byId = id => document.getElementById(id);
+  const connect = byId('stripe-connect');
+  const setup = byId('stripe-help');
+  const price = byId('coach-price');
+  const save = byId('save-price');
+  const checkout = byId('coach-checkout');
+  const feedback = byId('price-status');
+  const signIn = byId('stripe-signin');
+  async function request(action) {
+    const {data,error} = await db.functions.invoke('creator-billing',{body:{action}});
+    if (error || data?.error) throw Error(data?.error || 'Billing is unavailable. Please retry.');
+    return data;
+  }
+  let testMode = false;
+  const labels = {setup:'Platform setup pending',unconnected:'Stripe not connected',onboarding:'Finish Stripe onboarding',connected:'Stripe connected'};
+  async function refresh() {
+    try {
+      const result = await request('status');
+      testMode = result.live === false;
+      const status = labels[result.state] + (result.live === false ? ' · Test mode' : '');
+      setup.textContent = status;
+      connect.textContent = ({setup:'Sign in with Stripe',unconnected:'Connect with Stripe',onboarding:'Continue Stripe setup',connected:'Open Stripe dashboard'})[result.state];
+      connect.dataset.state = result.state;
+      checkout.disabled = result.state !== 'connected';
+      checkout.textContent = testMode ? 'Create test checkout link' : 'Create client checkout link';
+      updateIncome(result,status);
+      return result;
+    } catch (err) {
+      setup.textContent = err.message;
+      updateIncome({state:'error'},'Could not load Stripe data');
+    }
+  }
+  connect.onclick = async () => {
+    connect.disabled = true;
+    try {
+      if (connect.dataset.state === 'setup') {location.assign(signIn.href);return;}
+      const data = await request('connect');
+      if (data.url) location.assign(data.url);
+      else { setup.textContent = data.message || 'Try connecting again.'; signIn.hidden=false; }
+    } catch(err) {setup.textContent=err.message;signIn.hidden=false;}
+    finally {connect.disabled=false;}
+  };
+  checkout.onclick = async () => {
+    checkout.disabled=true;
+    try {
+      const data=await request('checkout');
+      if (!data.url) throw Error('Finish Stripe onboarding to create a checkout link.');
+      const link=byId('checkout-link');
+      link.hidden=false;link.value=data.url;link.select();
+      feedback.textContent=testMode ? 'Test checkout link. Use a Stripe test card.' : 'Share this link with one client. It expires in 24 hours.';
+    } catch(err) {feedback.textContent=err.message;}
+    finally {checkout.disabled=false;}
+  };
+  save.onsubmit = async event => {
+    event.preventDefault();
+    const cents=Math.round(Number(price.value)*100);
+    const button=save.querySelector('button');
+    button.disabled=true;
+    try {
+      const {error}=await db.from('coach_pricing').upsert({creator_id:user.id,weekly_cents:cents});
+      if (error) throw error;
+      feedback.textContent='Price saved for new checkouts.';
+      byId('checkout-link').hidden=true;
+    } catch(err) {feedback.textContent=err.message;}
+    finally {button.disabled=false;}
+  };
+  const loadPrice=async()=>{
+    const {data,error}=await db.from('coach_pricing').select('weekly_cents').eq('creator_id',user.id).maybeSingle();
+    if (error) throw error;
+    price.value=((data?.weekly_cents ?? 399)/100).toFixed(2);
+    price.disabled=false;save.querySelector('button').disabled=false;
+  };
+  loadPrice().catch(()=>{feedback.textContent='Could not load pricing. Reload to retry.';});
+  await refresh();
+  window.addEventListener('focus',refresh);
+}

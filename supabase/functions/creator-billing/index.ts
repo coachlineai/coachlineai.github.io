@@ -1,0 +1,81 @@
+import {createClient} from 'npm:@supabase/supabase-js@2.49.8';
+
+const site = 'https://coachlineai.github.io';
+const cors = {'Access-Control-Allow-Origin':site,'Access-Control-Allow-Headers':'authorization, apikey, x-client-info, content-type','Cache-Control':'no-store'};
+const json = (body: unknown, status=200) => Response.json(body,{status,headers:cors});
+const day = (seconds:number) => new Date(seconds*1000).toISOString().slice(0,10);
+
+Deno.serve(async req => {
+  if (req.method === 'OPTIONS') return new Response(null,{headers:cors});
+  if (req.method !== 'POST') return json({error:'POST required'},405);
+  try {
+    const url = Deno.env.get('SUPABASE_URL')!;
+    const caller = createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:req.headers.get('Authorization') || ''}}});
+    const {data:{user},error} = await caller.auth.getUser();
+    if (error || !user) return json({error:'Sign in again.'},401);
+    const {data: profile,error: authError} = await caller.from('profiles').select('id').eq('id',user.id).maybeSingle();
+    if (!profile || authError) return json({error:'An active creator session is required.'},403);
+    const {action} = await req.json();
+    if (!['status','connect','checkout','portal'].includes(action)) return json({error:'Unknown action'},400);
+    const key = Deno.env.get('STRIPE_SECRET_KEY');
+    if (!key) return json({state:'setup',message:'Coachline’s Stripe platform setup is pending.'});
+    const live = key.startsWith('sk_live_') || key.startsWith('rk_live_');
+    const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+    const lookup = () => admin.from('creator_stripe_accounts').select('account_id').eq('creator_id',user.id).eq('live',live).maybeSingle();
+    const mapping = await lookup();
+    if (mapping.error) throw mapping.error;
+    let account = mapping.data?.account_id;
+    async function stripe(path:string, params?:Record<string,string>, scoped=false, idem?:string) {
+      const headers:Record<string,string> = {Authorization:'Bearer '+key,'Stripe-Version':'2024-06-20'};
+      if (scoped) headers['Stripe-Account']=account!;
+      if (idem) headers['Idempotency-Key']=idem;
+      const response=await fetch('https://api.stripe.com/v1/'+path,{method:params?'POST':'GET',headers,body:params?new URLSearchParams(params):undefined});
+      const result=await response.json();
+      if (!response.ok) throw new Error(result.error?.code || 'Stripe request failed');
+      return result;
+    }
+    if (!account && action==='connect') {
+      const created=await stripe('accounts',{type:'express','capabilities[card_payments][requested]':'true','capabilities[transfers][requested]':'true','metadata[creator_id]':user.id},false,'coachline-account-'+user.id);
+      const saved=await admin.from('creator_stripe_accounts').upsert({creator_id:user.id,live,account_id:created.id},{onConflict:'creator_id,live',ignoreDuplicates:true});
+      if (saved.error) throw saved.error;
+      const row=await lookup();
+      if (!row.data) throw new Error('Account mapping unavailable');
+      account=row.data.account_id;
+    }
+    if (!account) return json({state:'unconnected',live});
+    const acct=await stripe('accounts/'+account);
+    const ready=acct.charges_enabled && acct.payouts_enabled;
+    if (action==='connect' || action==='portal') {
+      const back=site+'/dashboard.html#settings/payments';
+      const link=ready ? await stripe('accounts/'+account+'/login_links',{}) : await stripe('account_links',{account,return_url:back,refresh_url:back,type:'account_onboarding'});
+      return json({url:link.url});
+    }
+    if (!ready) return json({state:'onboarding',live});
+    if (action==='checkout') {
+      const price=await caller.from('coach_pricing').select('weekly_cents').eq('creator_id',user.id).maybeSingle();
+      if (price.error) throw price.error;
+      const session=await stripe('checkout/sessions',{mode:'subscription','line_items[0][quantity]':'1','line_items[0][price_data][currency]':'usd','line_items[0][price_data][recurring][interval]':'week','line_items[0][price_data][unit_amount]':String(price.data?.weekly_cents ?? 399),'line_items[0][price_data][product_data][name]':'Weekly AI coaching','subscription_data[application_fee_percent]':'20','subscription_data[metadata][creator_id]':user.id,'metadata[creator_id]':user.id,success_url:site+'/',cancel_url:site+'/'},true);
+      return json({url:session.url});
+    }
+    async function list(path:string) {
+      const rows=[];
+      let cursor='';
+      do {
+        const page=await stripe(path+(path.includes('?')?'&':'?')+'limit=100'+(cursor?'&starting_after='+encodeURIComponent(cursor):''),undefined,true);
+        rows.push(...page.data);
+        cursor=page.has_more ? page.data.at(-1).id : '';
+      } while(cursor);
+      return rows;
+    }
+    const [ledger,charges,payouts,subscriptions]=await Promise.all([list('balance_transactions'),list('charges?expand[]=data.balance_transaction'),list('payouts'),list('subscriptions?status=active')]);
+    const activity=ledger.filter(t=>t.currency==='usd' && !['payout','payout_cancel','payout_failure'].includes(t.type));
+    return json({state:'connected',live,clients:new Set(subscriptions.map(s=>s.customer)).size,
+      total:activity.reduce((n,t)=>n+t.net,0),
+      entries:activity.map(t=>({date:day(t.created),net:t.net})),
+      payments:charges.filter(c=>c.currency==='usd').map(c=>({date:day(c.created),type:'Coaching payment',client:{name:c.billing_details?.name || 'Client',digits:(c.billing_details?.phone || '').slice(-4)},status:c.refunded?'Refunded':c.status==='succeeded'?'Paid':c.status==='pending'?'Pending':'Failed',paid:c.amount_captured,refunded:c.amount_refunded,fee:c.application_fee_amount || 0,earnings:c.balance_transaction?.net || 0})),
+      payouts:payouts.filter(p=>p.currency==='usd').map(p=>({id:p.id,date:day(p.arrival_date),amount:p.amount,status:({paid:'Deposited',in_transit:'On the way',pending:'Scheduled',failed:'Failed',canceled:'Canceled'})[p.status] || p.status}))});
+  } catch (err) {
+    console.error('Billing request failed',err instanceof Error?err.message:'backend error');
+    return json({error:'Stripe could not complete this request. Please try again.'},502);
+  }
+});

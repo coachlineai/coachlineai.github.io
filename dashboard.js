@@ -3,7 +3,8 @@ import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
 import { initCoach } from './coach.js?v=voice1';
-import { initIncome } from './income.js?v=info1';
+import {initBilling} from './billing.js';
+import { initIncome } from './income.js?v=payments1';
 import { showClients } from './clients.js';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
@@ -66,4 +67,4 @@ try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, re
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
 page = ownedPage;
-if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);initIncome();initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
+if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);const updateIncome=initIncome();initBilling(user,updateIncome);initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
