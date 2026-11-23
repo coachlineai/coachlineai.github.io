@@ -12,6 +12,7 @@ export function showSettingsTab(tab) {
 }
 
 export function initSettings(user, profile) {
+  initDeletion(user);
   const nameForm = document.querySelector('#settings-name');
   const emailForm = document.querySelector('#settings-email');
   const passwordForm = document.querySelector('#settings-password');
@@ -67,5 +68,70 @@ export function initSettings(user, profile) {
     if (error) throw error;
     passwordForm.reset();
     return 'Password updated.';
+  });
+}
+
+function initDeletion(user) {
+  const dialog = document.querySelector('#account-deletion');
+  const form = dialog.querySelector('form');
+  const phrase = form.elements.phrase;
+  const submit = form.querySelector('[type=submit]');
+  const cancel = form.querySelector('[data-cancel]');
+  const status = form.querySelector('[role=status]');
+  const required = 'DELETE MY ACCOUNT';
+  let busy = false;
+  document.querySelector('#open-delete-account').onclick = () => {
+    form.reset();
+    submit.disabled = true;
+    status.textContent = '';
+    dialog.showModal();
+    phrase.focus();
+  };
+  phrase.oninput = () => { submit.disabled = busy || phrase.value !== required; };
+  cancel.onclick = () => dialog.close();
+  dialog.oncancel = event => { if (busy) event.preventDefault(); };
+  form.onsubmit = async event => {
+    event.preventDefault();
+    if (busy || phrase.value !== required) return;
+    busy = submit.disabled = cancel.disabled = phrase.disabled = true;
+    status.textContent = 'Deleting your account…';
+    try {
+      // Storage's remove API deletes the file as well as its metadata.
+      while (true) {
+        const { data, error } = await db.rpc('delete_my_account', { confirmation: required });
+        if (error) throw error;
+        if (!data.length) break;
+        for (const bucket of new Set(data.map(file => file.bucket))) {
+          const paths = data.filter(file => file.bucket === bucket).map(file => file.path);
+          const result = await db.storage.from(bucket).remove(paths);
+          if (result.error || !result.data?.length) throw result.error || Error('Upload cleanup did not complete.');
+        }
+      }
+      try { await clearLocalCoach(user.id); } finally {
+        try { await db.auth.signOut({scope:'local'}); } finally { location.replace('signin.html'); }
+      }
+    } catch (error) {
+      status.textContent = 'Deletion could not finish. ' + error.message + ' Sign in again or retry.';
+    } finally {
+      busy = cancel.disabled = phrase.disabled = false;
+      phrase.oninput();
+    }
+  };
+}
+
+function clearLocalCoach(owner) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('coachline-coach-preview', 1);
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      if (!database.objectStoreNames.contains('settings')) { database.close(); resolve(); return; }
+      const tx = database.transaction('settings', 'readwrite');
+      const store = tx.objectStore('settings');
+      store.delete(owner + '/draft');
+      store.delete(owner + '/published');
+      tx.oncomplete = () => { database.close(); resolve(); };
+      tx.onabort = () => { database.close(); reject(tx.error); };
+    };
   });
 }

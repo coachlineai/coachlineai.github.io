@@ -1,4 +1,4 @@
-import {initSettings, showSettingsTab} from './settings.js';
+import {initSettings, showSettingsTab} from './settings.js?v=delete1';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';

@@ -31,3 +31,8 @@
 .channel-grid .integration-request{justify-content:center;text-align:center}
 @media(max-width:1150px){.channel-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.channel-grid{grid-template-columns:1fr}}
+.delete-zone{margin-top:26px;padding-top:24px;border-top:1px solid #e5e3ee}
+.danger-button{background:#ae2434;color:white;border-radius:24px;font-weight:700;padding:11px 20px}
+#account-deletion{max-width:min(430px,92vw);padding:24px;border-radius:18px;color:#211c42}
+#account-deletion h2{margin:0}#account-deletion input{width:100%;margin-top:8px;padding:10px;border:1px solid #c9c6d8;border-radius:8px}
+.delete-actions{display:flex;justify-content:flex-end;gap:10px}.danger-button:disabled{opacity:.48;cursor:default}
