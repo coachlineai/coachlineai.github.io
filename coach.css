@@ -19,15 +19,33 @@
 #coach-qr svg{width:100%;height:auto;display:block}#coach-message{display:inline-block;text-decoration:none;padding:12px 24px}
 #coach-number{font-variant-numeric:tabular-nums;margin:8px 0 18px}
 
-#coach-view select {
+.greeting-select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+#coach-view .greeting-select select {
+  display: block;
+  width: 100%;
   -webkit-appearance: none;
   appearance: none;
-  min-width: 0;
-  padding-right: 44px;
+  background: white;
+  padding-right: 56px;
   text-overflow: ellipsis;
-  background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 6 5 5 5-5' fill='none' stroke='%233a3551' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center / 16px 16px;
 }
-
+.greeting-select::after {
+  content: "";
+  position: absolute;
+  right: 26px;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  box-sizing: border-box;
+  border: solid #342f48;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
 @media (forced-colors: active) {
-  #coach-view select { appearance: auto; background-image: none; }
+  .greeting-select::after { border-color: ButtonText; }
 }
