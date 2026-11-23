@@ -1,3 +1,4 @@
+import {initSettings, showSettingsTab} from './settings.js';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
@@ -32,9 +33,9 @@ let playbook;
 function routeDashboard() {
   if (!profile) return;
   const section = location.hash.split('/')[0].slice(1);
-  const view = ['clients','income','coach','playbook'].includes(section) ? section : 'home';
-  const title = view === 'coach' ? 'AI Coach' : view[0].toUpperCase() + view.slice(1);
-  for (const id of ['home','income','clients','coach','playbook']) {
+  const view = ['clients','income','coach','playbook','settings'].includes(section) ? section : 'home';
+  const title = view === 'settings' ? 'Profile settings' : view === 'coach' ? 'AI Coach' : view[0].toUpperCase() + view.slice(1);
+  for (const id of ['home','income','clients','coach','playbook','settings']) {
     $('#' + id + '-view').hidden = id !== view;
   }
   $('header b').textContent = title;
@@ -45,6 +46,7 @@ function routeDashboard() {
   if (view === 'playbook') {
     playbook ??= import('./playbook.js?v=delete1').then(module => module.initPlaybook(db,user.id)).catch(() => {playbook=null; $('#pb-status').textContent='Could not load Playbook. Reopen it to retry.';});
   }
+  if (view === 'settings') showSettingsTab(location.hash.split('/')[1]);
   if (view === 'clients') showClients();
   document.body.classList.remove('menu-open');
   $('#menu').setAttribute('aria-expanded', 'false');
@@ -52,7 +54,7 @@ function routeDashboard() {
   if (view === 'income') $('#income-title').focus({preventScroll:true});
 }
 window.addEventListener('hashchange', routeDashboard);
-function show(title){if(['Income','Clients','AI Coach','Playbook'].includes(title)){const hash='#'+(title==='AI Coach'?'coach':title.toLowerCase());if(location.hash===hash)routeDashboard();else location.hash=hash;return;}if(title==='My Page'){location.href='page-editor.html';return;}$('#panelTitle').textContent=title;const panel=$('#panel');panel.replaceChildren();if(title==='Profile settings'){const form=node('form',''),label=node('label','Full name'),input=node('input',''),button=node('button','Save name');input.value=profile.full_name;input.required=true;input.maxLength=80;label.append(input);form.append(label,button);form.onsubmit=async e=>{e.preventDefault();const {error}=await db.from('profiles').update({full_name:input.value.trim()}).eq('id',user.id);if(error){$('#notice').textContent=error.message;return;}profile.full_name=input.value.trim();$('h1').textContent='Welcome back, '+profile.full_name;$('dialog').close();};panel.append(form);}else panel.append(node('p',({Analytics:'Analytics will appear once tracking is connected.',Waitlist:'Your waitlist is not connected yet.'})[title]||'This feature is not connected yet. You can edit and publish your creator page now.'));$('dialog').showModal();}
+function show(title){if(title==='Profile settings'){location.hash='settings/profile';return;}if(['Income','Clients','AI Coach','Playbook'].includes(title)){const hash='#'+(title==='AI Coach'?'coach':title.toLowerCase());if(location.hash===hash)routeDashboard();else location.hash=hash;return;}if(title==='My Page'){location.href='page-editor.html';return;}$('#panelTitle').textContent=title;const panel=$('#panel');panel.replaceChildren();panel.append(node('p',({Analytics:'Analytics will appear once tracking is connected.',Waitlist:'Your waitlist is not connected yet.'})[title]||'This feature is not connected yet. You can edit and publish your creator page now.'));$('dialog').showModal();}
 document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>show(b.dataset.open));
 document.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(publicLink(page));$('#notice').textContent='Page link copied. Publish your page before sharing it.';}catch{$('#notice').textContent=publicLink(page);}});
 $('#menu').onclick=()=>$('#menu').setAttribute('aria-expanded',document.body.classList.toggle('menu-open'));
@@ -64,4 +66,4 @@ try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, re
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
 page = ownedPage;
-if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initIncome();initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
+if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);initIncome();initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}

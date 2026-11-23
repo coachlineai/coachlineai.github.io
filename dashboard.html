@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creator dashboard | Coachline</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="dashboard.css?v=income1"><link rel="stylesheet" href="income.css?v=info1"><link rel="stylesheet" href="clients.css"><link rel="stylesheet" href="playbook.css?v=delete1"><link rel="stylesheet" href="coach.css?v=voice1"><link rel="modulepreload" href="supabase-client.js"><link rel="modulepreload" href="vendor/supabase.js"><script type="module" src="dashboard.js?v=voice1"></script><style>.locked .layout,.locked aside{visibility:hidden}</style></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Creator dashboard | Coachline</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="dashboard.css?v=income1"><link rel="stylesheet" href="income.css?v=info1"><link rel="stylesheet" href="clients.css"><link rel="stylesheet" href="playbook.css?v=delete1"><link rel="stylesheet" href="coach.css?v=voice1"><link rel="modulepreload" href="supabase-client.js"><link rel="modulepreload" href="vendor/supabase.js"><script type="module" src="dashboard.js?v=settings1"></script><style>.locked .layout,.locked aside{visibility:hidden}</style><link rel="stylesheet" href="settings.css"></head>
 <body class="locked"><aside id="sidebar"><div class="brand"><i>✦</i>Coachline</div><nav aria-label="Creator dashboard"><button data-home aria-current="page">Home</button><button data-open="My Page">My Page</button><button data-open="AI Coach">AI Coach</button><button data-open="Playbook">Playbook</button><button data-open="Clients">Clients</button><button data-open="Income">Income</button></nav><h3>Shortcuts</h3><button data-open="Auto DMs">Auto DMs</button><footer><button data-open="Refer a creator">Refer a creator</button><button data-open="Profile settings">Profile settings</button><button id="logout">Log out</button></footer></aside>
 <header><button id="menu" aria-controls="sidebar" aria-expanded="false">☰ Menu</button><b>Home</b><span>Creator account</span></header>
 <main><div id="home-view"><h1>Loading your account…</h1><div class="layout"><div><section class="metrics" aria-label="Pilot overview"><button data-open="Income">Total earnings<strong>$0.00</strong><small>Payments not connected</small></button><button data-open="Clients">Paying clients<strong>0</strong><small>Pilot spots filled</small></button><button data-open="Clients">Active this week<strong>0</strong><small>Clients checked in</small></button><button data-open="Waitlist">Waitlist<strong id="waiting">0</strong><small>People waiting</small></button></section>
@@ -8,6 +8,30 @@
 <h2>Needs your reply</h2><section class="card" id="queue"></section></div>
 <div><section class="card referral"><h2>Refer a creator</h2><p>Invite another trainer to Coachline.</p><div class="split"><span><b>0</b> Creators referred</span><span><b>$0.00</b> Commission earned</span></div><button class="soft" data-copy="referral">Copy page link</button></section>
 <section class="preview"><div class="tabs"><button id="pageTab" aria-pressed="true">My Page</button><button id="coachTab" aria-pressed="false">Try My Coach</button></div><div class="phone" id="phone"></div><button class="soft" data-open="My Page">Edit my page</button></section></div></div></div>
+<section id="settings-view" hidden aria-labelledby="settings-title">
+<h1 id="settings-title">Account settings</h1>
+<nav class="settings-tabs" aria-label="Account settings">
+<a href="#settings/profile">Profile</a><a href="#settings/integrations">Integrations</a><a href="#settings/payments">Payments</a>
+</nav>
+<div data-settings="profile" class="settings-card">
+<h2>My profile</h2>
+<div class="settings-grid">
+<form id="settings-name"><label>Full name<input name="fullName" required maxlength="80" autocomplete="name"></label><button class="soft">Save name</button><output aria-live="polite"></output></form>
+<form id="settings-email"><label>Email address<input name="email" type="email" required autocomplete="email"></label><button class="soft">Update email</button><output aria-live="polite"></output></form>
+</div>
+<form id="settings-password"><h2>Password</h2><label>Current password<input name="current" type="password" autocomplete="current-password" required></label>
+<div class="settings-grid"><label>New password<input name="next" type="password" minlength="12" placeholder="At least 12 characters" autocomplete="new-password" required></label><label>Confirm new password<input name="confirm" type="password" autocomplete="new-password" required></label></div>
+<button class="primary">Update password</button><output aria-live="polite"></output></form>
+</div>
+<div data-settings="integrations" hidden><h2>Messaging channels</h2><div class="channel-grid">
+<article class="settings-card"><h3>Instagram</h3><p>Start coaching conversations with a DM when someone comments on a workout.</p><details><summary>Connection details</summary><p>Instagram DM automation will be available once Coachline connects its Meta app.</p></details></article>
+<article class="settings-card"><h3>WhatsApp</h3><p>Share workouts and check in with clients on WhatsApp.</p><button disabled>Coming soon</button></article>
+<article class="settings-card"><h3>Telegram</h3><p>Send training plans and answer client questions on Telegram.</p><button disabled>Coming soon</button></article>
+</div></div>
+<div data-settings="payments" class="settings-card" hidden><h2>Payment methods</h2><p>Connect a Stripe account to accept client payments and receive payouts.</p>
+<div class="stripe-row"><strong>stripe</strong><button disabled>Register with Stripe</button></div><small>Stripe onboarding is coming soon.</small>
+<div class="checkout-settings"><h3>Checkout settings</h3><label><input type="checkbox" disabled> Require agreement to terms and conditions</label><label>Checkout language<select disabled><option>English</option></select></label><small>Available when checkout is connected.</small></div></div>
+</section>
 <section id="income-view" hidden aria-labelledby="income-title">
   <div class="income-top">
     <div><h1 id="income-title" tabindex="-1">My Income</h1><p>Your earnings <strong id="income-total">$0.00</strong></p></div>
