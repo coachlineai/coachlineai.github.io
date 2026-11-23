@@ -1,3 +1,4 @@
+import {voiceWave,startAudioEngine} from './voice-wave.js';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 const choices = {
@@ -102,12 +103,16 @@ export async function initCoach(owner, phone) {
   }
   const consent = $('#voice-consent'), upload = $('#voice-file'), record = $('#record-coach');
   const player = $('#voice-audio'), voiceStatus = $('#voice-state');
+  const wave=voiceWave(root,player);
   function refreshVoice() {
+    player.pause();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = data.audio ? URL.createObjectURL(data.audio) : null;
     if (objectUrl) player.src = objectUrl;
     else player.removeAttribute('src');
-    player.hidden = $('#remove-voice').hidden = !objectUrl;
+    player.load();
+    wave.sample(data.audio);
+    $('#remove-voice').hidden = !objectUrl;
     consent.checked = data.consent;
     upload.disabled = !data.consent;
     record.disabled = !data.consent || !navigator.mediaDevices?.getUserMedia || !window.MediaRecorder;
@@ -131,25 +136,32 @@ export async function initCoach(owner, phone) {
   };
   $('#remove-voice').onclick = () => {data.audio = null; voiceStatus.textContent = ''; refreshVoice(); changed();};
   record.onclick = async () => {
-    if (recorder?.state === 'recording') { recorder.stop(); return; }
-    let stream;
+    if (recorder?.state === 'recording') { record.disabled=true; recorder.stop(); return; }
+    let stream, engine, stopMeter;
     record.disabled = true; consent.disabled = true;
     try {
+      player.pause();
+      upload.disabled=true;
+      engine=startAudioEngine();
       stream = await navigator.mediaDevices.getUserMedia({audio:true});
       recorder = new MediaRecorder(stream);
       const chunks = [];
       recorder.ondataavailable = e => chunks.push(e.data);
+      if(engine)stopMeter=wave.monitor(stream,engine);
       recorder.start();
       record.textContent = 'Stop recording';
       voiceStatus.textContent = 'Recording up to 30 seconds…';
       record.disabled = false;
       const timer = setTimeout(() => {if (recorder.state === 'recording') recorder.stop();},30000);
       recorder.onstop = () => {
-        clearTimeout(timer); stream.getTracks().forEach(t => t.stop());
+        clearTimeout(timer); stopMeter?.(); engine?.close().catch(()=>{}); stream.getTracks().forEach(t => t.stop());
         consent.disabled = false; record.textContent = 'Record sample';
-        attach(new Blob(chunks,{type:recorder.mimeType}));
+        const blob=new Blob(chunks,{type:recorder.mimeType});
+        if (!blob.size || blob.size>10*1024*1024) refreshVoice();
+        attach(blob);
       };
     } catch {
+      stopMeter?.(); engine?.close().catch(()=>{});
       stream?.getTracks().forEach(t => t.stop());
       voiceStatus.textContent = 'Microphone unavailable. You can upload an audio file.';
       consent.disabled = false; refreshVoice();
