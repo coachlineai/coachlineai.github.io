@@ -25,9 +25,8 @@ Deno.serve(async req => {
     const mapping = await lookup();
     if (mapping.error) throw mapping.error;
     let account = mapping.data?.account_id;
-    async function stripe(path:string, params?:Record<string,string>, scoped=false, idem?:string) {
+    async function stripe(path:string, params?:Record<string,string>, idem?:string) {
       const headers:Record<string,string> = {Authorization:'Bearer '+key,'Stripe-Version':'2024-06-20'};
-      if (scoped) headers['Stripe-Account']=account!;
       if (idem) headers['Idempotency-Key']=idem;
       const response=await fetch('https://api.stripe.com/v1/'+path,{method:params?'POST':'GET',headers,body:params?new URLSearchParams(params):undefined});
       const result=await response.json();
@@ -35,7 +34,7 @@ Deno.serve(async req => {
       return result;
     }
     if (!account && action==='connect') {
-      const created=await stripe('accounts',{type:'express','capabilities[card_payments][requested]':'true','capabilities[transfers][requested]':'true','metadata[creator_id]':user.id},false,'coachline-account-'+user.id);
+      const created=await stripe('accounts',{type:'express','capabilities[card_payments][requested]':'true','capabilities[transfers][requested]':'true','metadata[creator_id]':user.id},'coachline-account-'+user.id);
       const saved=await admin.from('creator_stripe_accounts').upsert({creator_id:user.id,live,account_id:created.id},{onConflict:'creator_id,live',ignoreDuplicates:true});
       if (saved.error) throw saved.error;
       const row=await lookup();
@@ -54,26 +53,37 @@ Deno.serve(async req => {
     if (action==='checkout') {
       const price=await caller.from('coach_pricing').select('weekly_cents').eq('creator_id',user.id).maybeSingle();
       if (price.error) throw price.error;
-      const session=await stripe('checkout/sessions',{mode:'subscription','line_items[0][quantity]':'1','line_items[0][price_data][currency]':'usd','line_items[0][price_data][recurring][interval]':'week','line_items[0][price_data][unit_amount]':String(price.data?.weekly_cents ?? 399),'line_items[0][price_data][product_data][name]':'Weekly AI coaching','subscription_data[application_fee_percent]':'20','subscription_data[metadata][creator_id]':user.id,'metadata[creator_id]':user.id,success_url:site+'/',cancel_url:site+'/'},true);
+      const session=await stripe('checkout/sessions',{mode:'subscription','line_items[0][quantity]':'1','line_items[0][price_data][currency]':'usd','line_items[0][price_data][recurring][interval]':'week','line_items[0][price_data][unit_amount]':String(price.data?.weekly_cents ?? 399),'line_items[0][price_data][product_data][name]':'Weekly AI coaching','subscription_data[metadata][creator_id]':user.id,'metadata[creator_id]':user.id,success_url:site+'/',cancel_url:site+'/'});
       return json({url:session.url});
     }
     async function list(path:string) {
       const rows=[];
       let cursor='';
       do {
-        const page=await stripe(path+(path.includes('?')?'&':'?')+'limit=100'+(cursor?'&starting_after='+encodeURIComponent(cursor):''),undefined,true);
+        const page=await stripe(path+(path.includes('?')?'&':'?')+'limit=100'+(cursor?'&starting_after='+encodeURIComponent(cursor):''));
         rows.push(...page.data);
         cursor=page.has_more ? page.data.at(-1).id : '';
       } while(cursor);
       return rows;
     }
-    const [ledger,charges,payouts,subscriptions]=await Promise.all([list('balance_transactions'),list('charges?expand[]=data.balance_transaction'),list('payouts'),list('subscriptions?status=active')]);
-    const activity=ledger.filter(t=>t.currency==='usd' && !['payout','payout_cancel','payout_failure'].includes(t.type));
-    return json({state:'connected',live,clients:new Set(subscriptions.map(s=>s.customer)).size,
-      total:activity.reduce((n,t)=>n+t.net,0),
-      entries:activity.map(t=>({date:day(t.created),net:t.net})),
-      payments:charges.filter(c=>c.currency==='usd').map(c=>({date:day(c.created),type:'Coaching payment',client:{name:c.billing_details?.name || 'Client',digits:(c.billing_details?.phone || '').slice(-4)},status:c.refunded?'Refunded':c.status==='succeeded'?'Paid':c.status==='pending'?'Pending':'Failed',paid:c.amount_captured,refunded:c.amount_refunded,fee:c.application_fee_amount || 0,earnings:c.balance_transaction?.net || 0})),
-      payouts:payouts.filter(p=>p.currency==='usd').map(p=>({id:p.id,date:day(p.arrival_date),amount:p.amount,status:({paid:'Deposited',in_transit:'On the way',pending:'Scheduled',failed:'Failed',canceled:'Canceled'})[p.status] || p.status}))});
+    const [invoices, subscriptions] = await Promise.all([
+      list('invoices?expand[]=data.charge'), list('subscriptions?status=active')
+    ]);
+    const payments = invoices.filter(i => i.currency === 'usd' &&
+      i.subscription_details?.metadata?.creator_id === user.id && i.charge && typeof i.charge === 'object')
+      .map(i => {
+        const charge = i.charge;
+        const paid = charge.amount_captured;
+        const refunded = charge.amount_refunded;
+        return {date:day(charge.created), type:i.billing_reason==='subscription_create'?'First week':'Subscription payment',
+          client:{name:i.customer_name || 'Client', digits:(i.customer_phone || '').slice(-4)},
+          status:refunded ? (refunded===paid?'Refunded':'Partially refunded') : charge.status==='succeeded'?'Paid':charge.status==='failed'?'Failed':'Pending',
+          paid,refunded,earnings:paid-refunded};
+      });
+    return json({state:'connected',live,
+      clients:new Set(subscriptions.filter(s=>s.metadata?.creator_id===user.id).map(s=>s.customer)).size,
+      total:payments.reduce((n,p)=>n+p.earnings,0),
+      entries:payments.map(p=>({date:p.date,net:p.earnings})), payments,payouts:[]});
   } catch (err) {
     console.error('Billing request failed',err instanceof Error?err.message:'backend error');
     return json({error:'Stripe could not complete this request. Please try again.'},502);

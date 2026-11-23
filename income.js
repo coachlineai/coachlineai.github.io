@@ -33,7 +33,7 @@ const payouts = [
   {id:'current', date:'2026-11-23', status:'On the way'},
   {id:'previous', date:'2026-11-12', status:'Deposited'}
 ];
-const paymentStates = ['Paid','Pending','Failed','Refunded'];
+const paymentStates = ['Paid','Pending','Failed','Refunded','Partially refunded'];
 const payoutStates = ['Scheduled','On the way','Deposited','Failed'];
 const badge = state => '<span class="badge badge-' +
   (state === 'On the way' ? 'transit' : state.toLowerCase()) + '">' + esc(state) + '</span>';
@@ -79,7 +79,7 @@ export function initIncome() {
   }
 
   function paymentDetail(row) {
-    if (!sample) return openDetail('Stripe payment', [['Client',clientName(row.client)],['Date',dateLabel(row.date)],['Captured',money(row.paid)],['Refunded',money(row.refunded)],['Coachline fee at capture',money(row.fee)],['Original net at capture',money(row.earnings)]]);
+    if (!sample) return openDetail('Stripe payment', [['Client',clientName(row.client)],['Date',dateLabel(row.date)],['Captured',money(row.paid)],['Refunded',money(row.refunded)],['Revenue after refunds',money(row.earnings)]]);
     const payout = transfers().find(item => item.id === row.payout);
     const entries = [
       ['Client',clientName(row.client)], ['Phone ending',row.client.digits],
@@ -108,12 +108,19 @@ export function initIncome() {
       const info = id === 'next' ? `
         <details class="payout-info">
           <summary aria-label="How your next payout is calculated"><span aria-hidden="true">i</span></summary>
-          <p class="payout-note">You keep 80% of each payment. Coachline takes 20%. On a $3.99 payment, your share is $3.19 before any processing fees.</p>
+          <p class="payout-note">Illustrative split only. A future 80% creator share would be $3.19 on a $3.99 payment.</p>
         </details>` : '';
       return '<section class="payout-card"><div class="payout-heading"><h2>' + label + '</h2>' + info + '</div><strong>' + (live.state==='error' && !sample ? '—' : money(value)) +
         '</strong><p>' + caption + '</p>' + (payout && (sample || id!=='previous') ? '<button class="income-detail-link" data-payout="' + payout.id +
         '">View breakdown</button>' : '') + '</section>';
     }).join('');
+    if (!sample) {
+      const paid = sum(payments(),'paid');
+      const refunded = sum(payments(),'refunded');
+      const cards = [['Collected',paid],['Refunded',refunded],['Estimated creator share (80%)',Math.round((paid-refunded)*0.8)]];
+      $('payout-cards').innerHTML=cards.map(([label,value],i)=>'<section class="payout-card"><h2>'+label+'</h2><strong>'+(live.state==='error'?'—':money(value))+'</strong>'+(i===2?'<p>Illustration only. No transfer is scheduled.</p>':'')+'</section>').join('');
+    }
+    document.querySelector('[data-activity="payouts"]').hidden=!sample;
     const weeks = [['2026-11-02','Nov 2 to 8'],['2026-11-09','Nov 9 to 15'],['2026-11-16','Nov 16 to 22']];
     const amounts = weeks.map(([start], i) => sum(payments().filter(row =>
       row.date >= start && (!weeks[i+1] || row.date < weeks[i+1][0]))));
@@ -152,7 +159,7 @@ export function initIncome() {
           'Transfers to your bank will appear here.') + '</p></div>';
       return;
     }
-    const columns = isPayments ? ['Client','Date','Payment type','Client paid','Coachline fee (20%)',sample ? 'Your earnings (80%)' : 'Original net at capture','Status'] :
+    const columns = isPayments ? ['Client','Date','Payment type','Client paid',sample ? 'Sample fee (20%)' : 'Refunded',sample ? 'Sample share (80%)' : 'Revenue after refunds','Status'] :
       ['Payout','Amount','Status'];
     const wide = i => isPayments && i >= 1 && i <= 4 ? 'wide-only' : '';
     const rows = results.map((row,index) => {
@@ -160,7 +167,7 @@ export function initIncome() {
         '<button data-entry="' + index + '">' + esc(clientName(row.client)) + '</button><small>' +
         (row.client.name ? '•• ' + esc(row.client.digits) : '') + '<span class="compact-date">' +
         (row.client.name ? ' · ' : '') + dateLabel(row.date) + '</span></small>',
-        dateLabel(row.date), esc(row.type), money(row.paid), money(row.fee), money(row.earnings), badge(row.status)
+        dateLabel(row.date), esc(row.type), money(row.paid), money(sample ? row.fee : row.refunded), money(row.earnings), badge(row.status)
       ] : ['<button data-entry="' + index + '">' + dateLabel(row.date) + '</button>',money(sample ? sum(included(row.id)) : row.amount),badge(row.status)];
       return '<tr>' + cells.map((cell,i) => '<td class="' + wide(i) + '">' + cell + '</td>').join('') + '</tr>';
     });
@@ -202,7 +209,7 @@ export function initIncome() {
     $('income-sample').textContent = sample ? 'Exit sample view' : 'Preview sample data';
     $('income-sample').setAttribute('aria-pressed',String(sample));
     overview();
-    selectTab(tab);
+    selectTab(sample ? tab : 'payments');
   };
   $('payout-cards').onclick = event => {
     const button = event.target.closest('[data-payout]');
