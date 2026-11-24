@@ -3,7 +3,7 @@ import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
 import { initCoach } from './coach.js?v=voice1';
-import {initBilling} from './billing.js?v=annual1';
+import {initBilling} from './billing.js?v=plans3';
 import { initIncome } from './income.js?v=revenue1';
 import { showClients } from './clients.js';
 const $=s=>document.querySelector(s);let user,page,profile;

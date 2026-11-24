@@ -31,27 +31,35 @@ Deno.serve(async req => {
       return result;
     }
     if (action==='checkout') {
-      const price=await caller.from('coach_pricing').select('weekly_cents').eq('creator_id',user.id).maybeSingle();
+      const price=await caller.from('coach_pricing').select('weekly_cents,annual_cents,one_time_cents').eq('creator_id',user.id).maybeSingle();
       if (price.error) throw price.error;
       const weekly = price.data?.weekly_cents ?? 399;
-      const annual = Math.round(weekly * 52 * 65 / 100);
-      async function checkout(interval: 'week' | 'year', cents: number) {
+      const annual = price.data?.annual_cents ?? 14600;
+      async function checkout(interval: 'week' | 'year' | 'once', cents: number) {
         const session = await stripe('checkout/sessions', {
-          mode: 'subscription',
+          mode: interval === 'once' ? 'payment' : 'subscription',
+          ...(interval === 'once' ? {
+            'invoice_creation[enabled]':'true',
+            'invoice_creation[invoice_data][metadata][creator_id]':user!.id,
+            'invoice_creation[invoice_data][metadata][coachline_plan]':'one_time',
+            'customer_creation':'always'
+          } : {
+            'line_items[0][price_data][recurring][interval]':interval,
+            'subscription_data[metadata][creator_id]':user!.id
+          }) as Record<string,string>,
           'line_items[0][quantity]': '1',
           'line_items[0][price_data][currency]': 'usd',
-          'line_items[0][price_data][recurring][interval]': interval,
           'line_items[0][price_data][unit_amount]': String(cents),
           'line_items[0][price_data][product_data][name]': 'AI coaching',
-          'subscription_data[metadata][creator_id]': user!.id,
           'metadata[creator_id]': user!.id,
           success_url: site + '/',
           cancel_url: site + '/'
         });
         return session.url as string;
       }
-      const [week, year] = await Promise.all([checkout('week', weekly), checkout('year', annual)]);
-      const offer = new URLSearchParams({week, year, cents: String(weekly)});
+      const single = price.data?.one_time_cents ?? 23000;
+      const [week, year, once] = await Promise.all([checkout('week', weekly), checkout('year', annual), checkout('once', single)]);
+      const offer = new URLSearchParams({week, year, once, annual:String(annual), single:String(single), cents: String(weekly)});
       return json({url: site + '/plans.html#' + offer});
 
     }
@@ -69,12 +77,12 @@ Deno.serve(async req => {
       list('invoices?expand[]=data.charge'), list('subscriptions?status=active')
     ]);
     const payments = invoices.filter(i => i.currency === 'usd' &&
-      i.subscription_details?.metadata?.creator_id === user.id && i.charge && typeof i.charge === 'object')
+      (i.subscription_details?.metadata?.creator_id === user.id || (i.metadata?.coachline_plan === 'one_time' && i.metadata.creator_id === user.id)) && i.charge && typeof i.charge === 'object')
       .map(i => {
         const charge = i.charge;
         const paid = charge.amount_captured;
         const refunded = charge.amount_refunded;
-        return {date:day(charge.created), type:i.billing_reason==='subscription_create'?'First payment':'Subscription payment',
+        return {date:day(charge.created), type:i.metadata?.coachline_plan==='one_time'?'One-time payment':i.billing_reason==='subscription_create'?'First payment':'Subscription payment',
           client:{name:i.customer_name || 'Client', digits:(i.customer_phone || '').slice(-4)},
           status:refunded ? (refunded===paid?'Refunded':'Partially refunded') : charge.status==='succeeded'?'Paid':charge.status==='failed'?'Failed':'Pending',
           paid,refunded,earnings:paid-refunded};
