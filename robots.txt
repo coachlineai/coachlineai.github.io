@@ -1,0 +1,6 @@
+# AI training and bulk dataset crawlers
+User-agent: GPTBot
+User-agent: ClaudeBot
+User-agent: Google-Extended
+User-agent: CCBot
+Disallow: /
