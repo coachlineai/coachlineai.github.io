@@ -18,8 +18,11 @@ Deno.serve(async req => {
     const {action} = await req.json();
     if (!['status','checkout'].includes(action)) return json({error:'Unknown action'},400);
     const key = Deno.env.get('STRIPE_SECRET_KEY');
-    if (!key) return json({state:'setup',message:'Coachline’s Stripe platform setup is pending.'});
-    const live = key.startsWith('sk_live_') || key.startsWith('rk_live_');
+    const live = key?.startsWith('sk_live_') || key?.startsWith('rk_live_');
+    if (!live) {
+      if (action === 'checkout') return json({error:'Live checkout is pending activation.'},503);
+      return json({state:'setup',total:0,clients:0,entries:[],payments:[],payouts:[]});
+    }
     async function stripe(path:string, params?:Record<string,string>) {
       const headers:Record<string,string> = {Authorization:'Bearer '+key,'Stripe-Version':'2024-06-20'};
       const response=await fetch('https://api.stripe.com/v1/'+path,{method:params?'POST':'GET',headers,body:params?new URLSearchParams(params):undefined});
