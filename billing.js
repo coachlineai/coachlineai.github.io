@@ -2,52 +2,39 @@ import {db} from './supabase-client.js';
 
 export async function initBilling(user, updateIncome) {
   const byId = id => document.getElementById(id);
-  const connect = byId('stripe-connect');
   const setup = byId('stripe-help');
   const price = byId('coach-price');
   const save = byId('save-price');
   const checkout = byId('coach-checkout');
   const feedback = byId('price-status');
-  const signIn = byId('stripe-signin');
   async function request(action) {
     const {data,error} = await db.functions.invoke('creator-billing',{body:{action}});
     if (error || data?.error) throw Error(data?.error || 'Billing is unavailable. Please retry.');
     return data;
   }
   let testMode = false;
-  const labels = {setup:'Platform setup pending',unconnected:'Stripe not connected',onboarding:'Finish Stripe onboarding',connected:'Stripe connected'};
+  const labels = {setup:'Platform setup pending',connected:'Coachline checkout ready'};
   async function refresh() {
     try {
       const result = await request('status');
       testMode = result.live === false;
       const status = labels[result.state] + (result.live === false ? ' · Test mode' : '');
       setup.textContent = status;
-      connect.textContent = ({setup:'Sign in with Stripe',unconnected:'Connect with Stripe',onboarding:'Continue Stripe setup',connected:'Open Stripe dashboard'})[result.state];
-      connect.dataset.state = result.state;
       checkout.disabled = result.state !== 'connected';
       checkout.textContent = testMode ? 'Create test checkout link' : 'Create client checkout link';
       updateIncome(result,status);
       return result;
     } catch (err) {
+      checkout.disabled = true;
       setup.textContent = err.message;
       updateIncome({state:'error'},'Could not load Stripe data');
     }
   }
-  connect.onclick = async () => {
-    connect.disabled = true;
-    try {
-      if (connect.dataset.state === 'setup') {location.assign(signIn.href);return;}
-      const data = await request('connect');
-      if (data.url) location.assign(data.url);
-      else { setup.textContent = data.message || 'Try connecting again.'; signIn.hidden=false; }
-    } catch(err) {setup.textContent=err.message;signIn.hidden=false;}
-    finally {connect.disabled=false;}
-  };
   checkout.onclick = async () => {
     checkout.disabled=true;
     try {
       const data=await request('checkout');
-      if (!data.url) throw Error('Finish Stripe onboarding to create a checkout link.');
+      if (!data.url) throw Error('Checkout is unavailable. Please retry.');
       const link=byId('checkout-link');
       link.hidden=false;link.value=data.url;link.select();
       feedback.textContent=testMode ? 'Test checkout link. Use a Stripe test card.' : 'Share this link with one client. It expires in 24 hours.';
