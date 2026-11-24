@@ -33,8 +33,27 @@ Deno.serve(async req => {
     if (action==='checkout') {
       const price=await caller.from('coach_pricing').select('weekly_cents').eq('creator_id',user.id).maybeSingle();
       if (price.error) throw price.error;
-      const session=await stripe('checkout/sessions',{mode:'subscription','line_items[0][quantity]':'1','line_items[0][price_data][currency]':'usd','line_items[0][price_data][recurring][interval]':'week','line_items[0][price_data][unit_amount]':String(price.data?.weekly_cents ?? 399),'line_items[0][price_data][product_data][name]':'Weekly AI coaching','subscription_data[metadata][creator_id]':user.id,'metadata[creator_id]':user.id,success_url:site+'/',cancel_url:site+'/'});
-      return json({url:session.url});
+      const weekly = price.data?.weekly_cents ?? 399;
+      const annual = Math.round(weekly * 52 * 65 / 100);
+      async function checkout(interval: 'week' | 'year', cents: number) {
+        const session = await stripe('checkout/sessions', {
+          mode: 'subscription',
+          'line_items[0][quantity]': '1',
+          'line_items[0][price_data][currency]': 'usd',
+          'line_items[0][price_data][recurring][interval]': interval,
+          'line_items[0][price_data][unit_amount]': String(cents),
+          'line_items[0][price_data][product_data][name]': 'AI coaching',
+          'subscription_data[metadata][creator_id]': user!.id,
+          'metadata[creator_id]': user!.id,
+          success_url: site + '/',
+          cancel_url: site + '/'
+        });
+        return session.url as string;
+      }
+      const [week, year] = await Promise.all([checkout('week', weekly), checkout('year', annual)]);
+      const offer = new URLSearchParams({week, year, cents: String(weekly)});
+      return json({url: site + '/plans.html#' + offer});
+
     }
     async function list(path:string) {
       const rows=[];
@@ -55,7 +74,7 @@ Deno.serve(async req => {
         const charge = i.charge;
         const paid = charge.amount_captured;
         const refunded = charge.amount_refunded;
-        return {date:day(charge.created), type:i.billing_reason==='subscription_create'?'First week':'Subscription payment',
+        return {date:day(charge.created), type:i.billing_reason==='subscription_create'?'First payment':'Subscription payment',
           client:{name:i.customer_name || 'Client', digits:(i.customer_phone || '').slice(-4)},
           status:refunded ? (refunded===paid?'Refunded':'Partially refunded') : charge.status==='succeeded'?'Paid':charge.status==='failed'?'Failed':'Pending',
           paid,refunded,earnings:paid-refunded};

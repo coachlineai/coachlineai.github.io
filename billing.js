@@ -4,6 +4,13 @@ export async function initBilling(user, updateIncome) {
   const byId = id => document.getElementById(id);
   const setup = byId('stripe-help');
   const price = byId('coach-price');
+  function previewAnnualPrice() {
+    const cents = Math.round(price.valueAsNumber * 100);
+    byId('annual-preview').textContent = price.validity.valid && Number.isFinite(cents)
+      ? 'Yearly plan: $' + (Math.round(cents * 52 * 65 / 100) / 100).toFixed(2) + ' per year (35% off 52 weeks).'
+      : '';
+  }
+  price.addEventListener('input', previewAnnualPrice);
   const save = byId('save-price');
   const checkout = byId('coach-checkout');
   const feedback = byId('price-status');
@@ -58,7 +65,7 @@ export async function initBilling(user, updateIncome) {
     const {data,error}=await db.from('coach_pricing').select('weekly_cents').eq('creator_id',user.id).maybeSingle();
     if (error) throw error;
     price.value=((data?.weekly_cents ?? 399)/100).toFixed(2);
-    price.disabled=false;save.querySelector('button').disabled=false;
+    price.disabled=false;previewAnnualPrice();save.querySelector('button').disabled=false;
   };
   loadPrice().catch(()=>{feedback.textContent='Could not load pricing. Reload to retry.';});
   await refresh();

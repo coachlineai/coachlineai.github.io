@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Choose your coaching plan | Coachline</title>
+  <style>
+    * { box-sizing: border-box }
+    body { margin: 0; color: #211d43; background: #f7f7ff; font: 1rem/1.5 system-ui,sans-serif }
+    main { max-width: 32rem; margin: 10vh auto; padding: 1.5rem }
+    h1 { line-height: 1.15 }
+    a { display: block; margin: 1rem 0; padding: 1.25rem; border: 1px solid #cbc7e4; border-radius: 1rem; background: white; color: inherit; text-decoration: none }
+    a:hover, a:focus-visible { outline: 2px solid #5745cd }
+    strong, span { display: block }
+    strong { font-size: 1.25rem }
+    span { color: #55516b }
+  </style>
+</head>
+<body><main>
+  <p>Coachline</p><h1>Choose your coaching plan</h1>
+  <p id="message">Open the checkout link from your coach to see your plans.</p>
+  <section id="plans" hidden>
+    <a id="week"><strong>Weekly coaching</strong><span></span></a>
+    <a id="year"><strong>Yearly coaching · Save 35%</strong><span></span></a>
+  </section>
+</main>
+<script>
+  const offer = new URLSearchParams(location.hash.slice(1));
+  const cents = Number(offer.get('cents'));
+  const intervals = ['week', 'year'];
+  function stripeCheckout(value) {
+    try {
+      const url = new URL(value);
+      return url.origin === 'https://checkout.stripe.com' && url.pathname.startsWith('/c/pay/');
+    } catch { return false; }
+  }
+  if (Number.isSafeInteger(cents) && cents >= 50 && cents <= 100000 &&
+      intervals.every(interval => stripeCheckout(offer.get(interval)))) {
+    for (const interval of intervals) {
+      const link = document.getElementById(interval);
+      const amount = interval === 'week' ? cents : Math.round(cents * 52 * 65 / 100);
+      link.href = offer.get(interval);
+      link.querySelector('span').textContent = '$' + (amount / 100).toFixed(2) + ' billed every ' + interval;
+    }
+    document.getElementById('message').textContent = 'Choose a billing period to continue to Stripe.';
+    document.getElementById('plans').hidden = false;
+  }
+</script></body></html>
