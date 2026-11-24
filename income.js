@@ -34,7 +34,7 @@ const payouts = [
   {id:'previous', date:'2026-11-12', status:'Deposited'}
 ];
 const paymentStates = ['Paid','Pending','Failed','Refunded','Partially refunded'];
-const payoutStates = ['Scheduled','On the way','Deposited','Failed'];
+const payoutStates = ['Scheduled','On the way','Deposited','Failed','Canceled'];
 const badge = state => '<span class="badge badge-' +
   (state === 'On the way' ? 'transit' : state.toLowerCase()) + '">' + esc(state) + '</span>';
 const clientName = client => client.name || 'Client ending in ' + client.digits;
@@ -79,7 +79,7 @@ export function initIncome() {
   }
 
   function paymentDetail(row) {
-    if (!sample) return openDetail('Stripe payment', [['Client',clientName(row.client)],['Date',dateLabel(row.date)],['Captured',money(row.paid)],['Refunded',money(row.refunded)],['Revenue after refunds',money(row.earnings)]]);
+    if (!sample) return openDetail('Stripe payment', [['Client',clientName(row.client)],['Date',dateLabel(row.date)],['Captured',money(row.paid)],['Refunded',money(row.refunded)],['Creator earnings',money(row.earnings)]]);
     const payout = transfers().find(item => item.id === row.payout);
     const entries = [
       ['Client',clientName(row.client)], ['Phone ending',row.client.digits],
@@ -102,25 +102,18 @@ export function initIncome() {
     $('payout-cards').innerHTML = cards.map(([label,id,empty]) => {
       const state = {current:'On the way',next:'Scheduled',previous:'Deposited'}[id];
       const selected = transfers().filter(p=>p.status===state && (id!=='previous' || p.date.startsWith(new Date().toISOString().slice(0,7))));
-      const payout = sample ? transfers().find(item => item.id === id) : selected.at(-1);
+      const payout = sample ? transfers().find(item => item.id === id) : selected[0];
       const value = sample ? sum(included(id)) : id==='previous' ? selected.reduce((n,p)=>n+p.amount,0) : payout?.amount || 0;
       const caption = !sample && id==='previous' ? selected.length+' deposits' : payout ? payout.status + ' · ' + dateLabel(payout.date) : empty;
       const info = id === 'next' ? `
         <details class="payout-info">
           <summary aria-label="How your next payout is calculated"><span aria-hidden="true">i</span></summary>
-          <p class="payout-note">Illustrative split only. A future 80% creator share would be $3.19 on a $3.99 payment.</p>
+          <p class="payout-note">Creator payouts include the 80% share available for the monthly payout on the 15th.</p>
         </details>` : '';
       return '<section class="payout-card"><div class="payout-heading"><h2>' + label + '</h2>' + info + '</div><strong>' + (live.state==='error' && !sample ? '—' : money(value)) +
         '</strong><p>' + caption + '</p>' + (payout && (sample || id!=='previous') ? '<button class="income-detail-link" data-payout="' + payout.id +
         '">View breakdown</button>' : '') + '</section>';
     }).join('');
-    if (!sample) {
-      const paid = sum(payments(),'paid');
-      const refunded = sum(payments(),'refunded');
-      const cards = [['Collected',paid],['Refunded',refunded],['Estimated creator share (80%)',Math.round((paid-refunded)*0.8)]];
-      $('payout-cards').innerHTML=cards.map(([label,value],i)=>'<section class="payout-card"><h2>'+label+'</h2><strong>'+(live.state==='error'?'—':money(value))+'</strong>'+(i===2?'<p>Illustration only. No transfer is scheduled.</p>':'')+'</section>').join('');
-    }
-    document.querySelector('[data-activity="payouts"]').hidden=!sample;
     const weeks = [['2026-11-02','Nov 2 to 8'],['2026-11-09','Nov 9 to 15'],['2026-11-16','Nov 16 to 22']];
     const amounts = weeks.map(([start], i) => sum(payments().filter(row =>
       row.date >= start && (!weeks[i+1] || row.date < weeks[i+1][0]))));
@@ -159,7 +152,7 @@ export function initIncome() {
           'Transfers to your bank will appear here.') + '</p></div>';
       return;
     }
-    const columns = isPayments ? ['Client','Date','Payment type','Client paid',sample ? 'Sample fee (20%)' : 'Refunded',sample ? 'Sample share (80%)' : 'Revenue after refunds','Status'] :
+    const columns = isPayments ? ['Client','Date','Payment type','Client paid',sample ? 'Sample fee (20%)' : 'Refunded',sample ? 'Sample share (80%)' : 'Creator earnings','Status'] :
       ['Payout','Amount','Status'];
     const wide = i => isPayments && i >= 1 && i <= 4 ? 'wide-only' : '';
     const rows = results.map((row,index) => {

@@ -14,20 +14,37 @@ export async function initBilling(user, updateIncome) {
     if (error || data?.error) throw Error(data?.error || 'Billing is unavailable. Please retry.');
     return data;
   }
-  let testMode = false;
-  const labels = {setup:'Platform setup pending',connected:'Coachline checkout ready'};
+  const connect = byId('stripe-connect');
+  const labels = {setup:'Coachline live payments setup pending',demo:'Demo account · Live payments disabled',unconnected:'Set up Stripe payouts to accept payments',onboarding:'Stripe setup incomplete or under review',connected:'Stripe payouts enabled · Monthly on the 15th'};
+  let connecting = false;
+  connect.onclick = async () => {
+    connecting = true;
+    connect.disabled = true;
+    try {
+      const result = await request('connect');
+      const target = new URL(result.url);
+      if (target.protocol !== 'https:' || !target.hostname.endsWith('.stripe.com')) throw Error('Invalid onboarding link.');
+      location.assign(target.href);
+    } catch (err) {
+      connecting = false;
+      connect.disabled = false;
+      setup.textContent = err.message;
+    }
+  };
   async function refresh() {
     try {
       const result = await request('status');
-      testMode = result.live === false;
-      const status = labels[result.state] + (result.live === false ? ' · Test mode' : '');
+      const status = labels[result.state] || 'Payments unavailable';
       setup.textContent = status;
+      connect.disabled = connecting || !['unconnected','onboarding','connected'].includes(result.state);
+      connect.textContent = result.state==='connected' ? 'Manage Stripe payouts' : result.state==='onboarding' ? 'Continue Stripe setup' : 'Set up US payouts with Stripe';
       checkout.disabled = result.state !== 'connected';
-      checkout.textContent = testMode ? 'Create test checkout link' : 'Create client checkout link';
+      if (checkout.disabled) byId('checkout-link').hidden=true;
       updateIncome(result,status);
       return result;
     } catch (err) {
       checkout.disabled = true;
+      connect.disabled = true;
       setup.textContent = err.message;
       updateIncome({state:'error'},'Could not load Stripe data');
     }
@@ -39,9 +56,9 @@ export async function initBilling(user, updateIncome) {
       if (!data.url) throw Error('Checkout is unavailable. Please retry.');
       const link=byId('checkout-link');
       link.hidden=false;link.value=data.url;link.select();
-      feedback.textContent=testMode ? 'Test checkout link. Use a Stripe test card.' : 'Share this link with one client. It expires in 24 hours.';
+      feedback.textContent='Share this link with one client. It expires in 24 hours.';
     } catch(err) {feedback.textContent=err.message;}
-    finally {checkout.disabled=false;}
+    finally {await refresh();}
   };
   save.onsubmit = async event => {
     event.preventDefault();
