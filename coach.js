@@ -1,3 +1,4 @@
+import {db} from './supabase-client.js';
 import {voiceWave,startAudioEngine} from './voice-wave.js';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
@@ -57,6 +58,48 @@ export async function initCoach(owner, phone) {
     save.disabled = publish.disabled = true;
   }
   root.inert = false;
+  async function invokePreview(body) {
+    const {data,error}=await db.functions.invoke('coach-preview',{body});
+    if(error || data?.error) throw Error(data?.error || 'The private preview is unavailable.');
+    return data;
+  }
+  function displayHistory(turns) {
+    const rows=turns.map(turn=>{
+      const p=document.createElement('p');
+      p.textContent=(turn.role==='model'?'Coach: ':'You: ')+turn.parts[0].text;
+      return p;
+    });
+    $('#coach-test-history').replaceChildren(...rows);
+  }
+  async function initPreview() {
+    const result=await invokePreview({action:'status'});
+    $('#coach-api-test').hidden=false;
+    displayHistory(result.history);
+    if(!result.geminiConfigured) $('#coach-test-status').textContent='Gemini setup is pending.';
+  }
+  initPreview().catch(()=>{});
+  $('#coach-check-line').onclick=async()=>{
+    try {
+      const result=await invokePreview({action:'checkLine'});
+      $('#coach-test-status').textContent='Sendblue verified your test phone: '+result.service;
+    } catch(e){$('#coach-test-status').textContent=e.message;}
+  };
+  $('#coach-test-form').onsubmit=async event=>{
+    event.preventDefault();
+    const button=event.currentTarget.querySelector('button'), input=$('#coach-test-message');
+    button.disabled=true;
+    $('#coach-test-status').textContent='Waiting for Gemini…';
+    try {
+      const settings=database ? await new Promise((resolve,reject)=>{
+        const read=database.transaction('settings').objectStore('settings').get(owner+'/published');
+        read.onsuccess=()=>resolve(read.result); read.onerror=()=>reject(read.error);
+      }) : {};
+      const {tone,emoji,styleNotes,greetingExample,text}=settings||{};
+      const reply=await invokePreview({action:'chat',message:input.value,style:{tone,emoji,styleNotes,greetingExample,text}});
+      displayHistory(reply.history); input.value=''; $('#coach-test-status').textContent='';
+    } catch(e){$('#coach-test-status').textContent=e.message;}
+    finally{button.disabled=false;}
+  };
   function changed() {
     status.textContent = 'Unsaved changes · Device preview';
     $('#coach-next').hidden = true;
