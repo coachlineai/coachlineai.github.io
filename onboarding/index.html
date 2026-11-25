@@ -16,10 +16,21 @@ const steps=[
 const answers=['','',''];let index=0,busy=false;
 function fadeInStep() {
  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
- for (const element of document.querySelectorAll('form > h1, #hint, .fields:not([hidden]), .return:not([hidden])')) {
+ for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .return:not([hidden])')) {
    element.getAnimations?.().forEach(animation => animation.cancel());
    element.animate?.([{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
  }
+ document.querySelectorAll('.fields:not([hidden]) > .option').forEach((option, index) => {
+   option.animate?.([
+     {opacity: 0, transform: 'translateY(14px)'},
+     {opacity: 1, transform: 'translateY(0)'}
+   ], {
+     duration: 340,
+     delay: 60 + index * 100,
+     easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+     fill: 'backwards'
+   });
+ });
 }
 function render(){
  const [title,hint,options]=steps[index];
