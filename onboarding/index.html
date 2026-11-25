@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><title>Your coaching profile · Coachline</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:#201e29;background:#f7f7fa;font:16px/1.45 Inter,system-ui,sans-serif}main{background:white;max-width:620px;margin:clamp(0px,5vh,52px) auto;padding:32px clamp(22px,5vw,54px);border:1px solid #e6e4eb;border-radius:30px;display:flex;flex-direction:column;min-height:min(790px,90dvh)}header,nav,label.option{display:flex;align-items:center}header{gap:8px;font-weight:750;letter-spacing:-.5px}header b{background:#6556ef;color:white;border-radius:50%;width:27px;text-align:center;font-size:19px}nav{gap:16px;margin:34px 0 20px}button,input{font:inherit}button{cursor:pointer}.back{border:0;border-radius:50%;height:44px;width:44px;background:#f4f3f7;font-size:22px}.back:disabled{opacity:.38}.track{height:4px;flex:1;background:#eeedf1;border-radius:8px;overflow:hidden}.fill{height:100%;background:#24212b;transition:width .2s}small{color:#706b7a}h1{letter-spacing:-.052em;line-height:1.07;font-size:clamp(34px,6vw,49px);margin:12px 0}p{color:#655f6e;margin:0 0 20px}form{display:flex;flex:1;flex-direction:column}.fields{margin:auto 0;padding:32px 0}.fields.name{margin:0}.name label{display:grid;gap:6px;color:#5d5766;font-size:14px}.name input{font-size:20px;border:1.5px solid #b8b5c0;border-radius:16px;padding:16px;width:100%}label.option{gap:14px;cursor:pointer;border:1px solid #dedce4;border-radius:16px;padding:13px 16px;margin:10px 0;min-height:68px}.option:has(:checked){box-shadow:inset 0 0 0 1px #25212d;border-color:#25212d;background:#faf9fc}.symbol{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#f5f4f8;font-size:20px}.option strong,.option small{display:block}.option input{margin-left:auto;width:20px;height:20px;accent-color:#24212b}.next,.return{background:#211e29;color:white;border:0;border-radius:99px;padding:16px 24px;font-weight:650;text-align:center;text-decoration:none}.next:disabled{background:#d6d4da;color:#55505c;cursor:default}footer{margin-top:auto;display:grid;gap:10px}#status{color:#655f6e;font-size:14px}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #7566ea;outline-offset:3px}[hidden]{display:none!important}@media(max-width:640px){body{background:white}main{border:0;border-radius:0;margin:0;min-height:100dvh;padding:24px 22px max(20px,env(safe-area-inset-bottom))}nav{margin-top:25px}}
+</style>
+<main><header><b aria-hidden="true">✦</b> Coachline</header><nav aria-label="Onboarding progress"><button class="back" type="button" aria-label="Previous step">←</button><div class="track"><div class="fill"></div></div><small id="step"></small></nav><form><h1 tabindex="-1"></h1><p id="hint"></p><div class="fields"></div><footer><span role="status" id="status"></span><button class="next">Continue</button><a class="return" hidden href="sms:+16177106179">Return to Messages</a></footer></form></main>
+<script type="module">
+const $=s=>document.querySelector(s);
+const ticket=location.hash.slice(1);
+const steps=[
+ ['What should we call you?','',[]],
+ ['Choose your sex','Choose what you’d like to share with your coach.',[['Male','♂'],['Female','♀'],['Other','◇'],['Prefer not to say','—']]],
+ ['How many workouts do you do per week?','Think about a typical week. Your coach will use this to plan with you.',[['0–2','•','Every now and then'],['3–5','∴','A few times a week'],['6+','⠿','Most days']]]
+];
+const answers=['','',''];let index=0,busy=false;
+function render(){
+ const [title,hint,options]=steps[index];
+ $('h1').textContent=title;$('#hint').textContent=hint;$('#step').textContent=(index+1)+' of 3';$('.fill').style.width=(index+1)/3*100+'%';$('.back').disabled=index===0;
+ const fields=$('.fields');fields.replaceChildren();fields.classList.toggle('name',index===0);
+ if(index===0){fields.innerHTML='<label>Your name<input name="name" autocomplete="given-name" maxlength="60" placeholder="First name or nickname"></label>';const input=fields.querySelector('input');input.value=answers[0];input.oninput=()=>{answers[0]=input.value;$('.next').disabled=!input.value.trim()};}
+ for(const [value,icon,detail] of options){
+ const label=document.createElement('label');label.className='option';
+ label.innerHTML='<span aria-hidden="true" class="symbol">'+icon+'</span><span><strong>'+value+'</strong>'+(detail?'<small>'+detail+'</small>':'')+'</span><input type="radio" name="choice">';
+ const radio=label.querySelector('input');radio.checked=answers[index]===value;radio.onchange=()=>{answers[index]=value;$('.next').disabled=false};fields.append(label);
+ }
+ $('.next').textContent=index===2?'Finish setup':'Continue';$('.next').disabled=!answers[index].trim();$('#status').textContent=!ticket?'Preview · Text your coach for your personal setup link.':'';
+}
+$('.back').onclick=()=>{if(index && !busy){index--;render();$('h1').focus()}};
+$('form').onsubmit=async event=>{
+ event.preventDefault();if(busy||!answers[index].trim())return;
+ if(index<2){index++;render();$('h1').focus();return}
+ if(!ticket){$('#status').textContent='To save your profile, open the personal link from your coaching conversation.';return}
+ busy=true;$('.next').disabled=$('.back').disabled=true;$('#status').textContent='Saving your profile…';
+ try{
+ const response=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/rest/v1/rpc/finish_coach_intake',{method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2]})});
+ if(!response.ok||await response.json()!==true)throw Error();
+ $('nav').hidden=$('.fields').hidden=$('.next').hidden=true;$('h1').textContent='You’re ready to train.';$('#hint').textContent='Head back to Messages and tell your coach what you want to work on.';$('#status').textContent='';$('.return').hidden=false;$('h1').focus();
+ }catch{$('#status').textContent='Couldn’t save. Try again, or text your coach for a fresh link.';$('.next').disabled=$('.back').disabled=false}finally{busy=false}
+};render();
+</script></html>
