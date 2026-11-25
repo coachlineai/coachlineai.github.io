@@ -48,16 +48,37 @@ const exerciseDemos: Record<string, string> = {
   'machine chest press': 'https://www.youtube.com/watch?v=lRo9zZ7EwpM'
 };
 
-function addExerciseDemo(reply: string) {
+function splitExerciseDemo(reply: string) {
   const lines = reply.split('\n');
-  const lastLine = lines.at(-1)?.trim() || '';
-  if (!lastLine.startsWith('EXERCISE:')) return reply;
-  const exercise = lastLine.slice('EXERCISE:'.length).trim().toLowerCase();
-  const description = lines.slice(0, -1).join('\n').trim();
-  if (!description || !/^[a-z][a-z -]{1,59}$/.test(exercise) || exercise === 'none') return description;
-  const demo = Object.hasOwn(exerciseDemos, exercise) ? exerciseDemos[exercise] : null;
-  return demo ? description + '\n\nWatch the ' + exercise + ' demo: ' + demo
-    : description + '\n\nFind a ' + exercise + ' demo on YouTube: https://www.youtube.com/results?search_query=' + encodeURIComponent(exercise + ' proper form tutorial shorts');
+  const marker = lines.at(-1)?.trim() || '';
+  if (!marker.startsWith('EXERCISE:')) return {answer: reply, demo: ''};
+  const exercise = marker.slice('EXERCISE:'.length).trim().toLowerCase();
+  return {
+    answer: lines.slice(0, -1).join('\n').trim(),
+    demo: Object.hasOwn(exerciseDemos, exercise) ? exerciseDemos[exercise] : ''
+  };
+}
+
+async function sendCoachMessages(number: string, line: string, answer: string, demo: string) {
+  async function send(content: string) {
+    const response = await fetch('https://api.sendblue.co/api/send-message', {
+      method: 'POST',
+      headers: {'sb-api-key-id':env('SENDBLUE_API_KEY_ID')!, 'sb-api-secret-key':env('SENDBLUE_API_SECRET_KEY')!, 'Content-Type':'application/json'},
+      signal: AbortSignal.timeout(10000),
+      body: JSON.stringify({number, from_number:line, content})
+    });
+    if (!response.ok || !(await response.json()).message_handle) throw Error('send unconfirmed');
+  }
+  await send(answer);
+  if (demo) {
+    try {
+      await send(demo);
+      return answer + '\n' + demo;
+    } catch {
+      console.warn('Exercise demo delivery unconfirmed');
+    }
+  }
+  return answer;
 }
 
 const photoInstructions = [
@@ -148,6 +169,7 @@ Deno.serve(async req => {
     if(error) throw error;
     const contents=previous.reverse().flatMap(t=>[{role:'user',parts:[{text:t.question}]},{role:'model',parts:[{text:t.answer}]}]);
     let answer: string;
+    let demo = '';
     let photoStage = 'attachment';
     try {
       const userParts: Array<{text:string} | Awaited<ReturnType<typeof loadPhoto>>> = [{text:question}];
@@ -159,10 +181,11 @@ Deno.serve(async req => {
       if(!generation.ok) throw Error('model HTTP ' + generation.status);
       const parts=(await generation.json()).candidates?.[0]?.content?.parts||[];
       answer=parts.filter((p:{thought?:boolean})=>!p.thought).map((p:{text?:string})=>p.text||'').join('').trim();
-      if (media) answer = addExerciseDemo(answer);
+      if (media) ({answer, demo} = splitExerciseDemo(answer));
       if(!answer) throw Error('empty model reply');
     } catch (error) {
       if (!media) throw error;
+      demo = '';
       console.warn('Photo processing failed', photoStage, error instanceof Error && /^(media source|media unavailable|photo too large|unsupported attachment|empty model reply|model HTTP [0-9]{3})$/.test(error.message) ? error.message : 'request failed');
       answer = photoStage === 'analysis' ? 'I received the photo, but the image analysis didn’t finish. Please try it again in a moment.' : 'I couldn’t read that photo. Try a smaller photo or screenshot, or describe what’s in it and what you’d like to know.';
     }
@@ -172,8 +195,7 @@ Deno.serve(async req => {
       if (reacted) answer = answer.slice(prefix[0].length);
     }
     phase='delivery_unconfirmed';
-    const sent=await fetch('https://api.sendblue.co/api/send-message',{method:'POST',headers:{'sb-api-key-id':env('SENDBLUE_API_KEY_ID')!,'sb-api-secret-key':env('SENDBLUE_API_SECRET_KEY')!,'Content-Type':'application/json'},signal:AbortSignal.timeout(10000),body:JSON.stringify({number:tester,from_number:pilot.phone_line,content:answer})});
-    if(!sent.ok || !(await sent.json()).message_handle) throw Error();
+    answer = await sendCoachMessages(tester, pilot.phone_line, answer, demo);
     const saved = await turns().update({state:'accepted',answer}).eq('handle',m.message_handle).select('handle').single();
     if (saved.error) console.error('Could not save delivered coaching turn', saved.error.code);
   } catch {
