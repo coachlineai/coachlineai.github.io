@@ -1,3 +1,4 @@
+import {trainerInstructions} from '../_shared/trainer.ts';
 import {createClient} from 'npm:@supabase/supabase-js@2.49.8';
 
 const headers={'Access-Control-Allow-Origin':'https://coachlineai.github.io','Access-Control-Allow-Headers':'authorization,apikey,x-client-info,content-type','Cache-Control':'no-store'};
@@ -11,12 +12,35 @@ Deno.serve(async req=>{
   if(!token) return reply({error:'Sign in to Coachline.'},401);
   const {data:{user}}=await db.auth.getUser(token);
   if(!user) return reply({error:'Session expired.'},401);
-  const session=()=>db.from('coach_preview_sessions').select('history').eq('creator_id',user.id).maybeSingle();
+  const session=()=>db.from('coach_preview_sessions').select('history,published_style,phone_line,webhook_secret').eq('creator_id',user.id).maybeSingle();
   const current=await session();
   if(current.error) return reply({error:'Preview storage unavailable.'},503);
   if(!current.data) return reply({error:'Private pilot only.'},403);
   const body=await req.json().catch(()=>null);
-  if(body?.action==='status') return reply({history:current.data.history,geminiConfigured:!!env('GEMINI_API_KEY')});
+  if(body?.action==='status') return reply({history:current.data.history,phoneLine:current.data.phone_line,publishedStyle:current.data.published_style,geminiConfigured:!!env('GEMINI_API_KEY')});
+  if(body?.action==='publishStyle'){
+    const source=body.style||{};
+    const style:Record<string,unknown>={tone:['Motivating','Serious','Funny','Playful roast'].filter(t=>Array.isArray(source.tone)&&source.tone.includes(t))};
+    for(const name of ['emoji','styleNotes','greetingExample','text','adjust']){
+      if(typeof source[name]==='string') style[name]=source[name].slice(0,500);
+    }
+    const {error}=await db.from('coach_preview_sessions').update({published_style:style}).eq('creator_id',user.id);
+    return reply(error?{error:'Could not publish coaching style.'}:{published:true});
+  }
+  if(body?.action==='connectPhone'){
+    const line=current.data.phone_line;
+    if(!line) return reply({error:'No pilot line assigned.'});
+    const url=env('SUPABASE_URL')+'/functions/v1/coach-inbound';
+    const config={url,secret:current.data.webhook_secret,sendblue_numbers:[line]};
+    const headers={'sb-api-key-id':env('SENDBLUE_API_KEY_ID')!,'sb-api-secret-key':env('SENDBLUE_API_SECRET_KEY')!,'Content-Type':'application/json'};
+    const endpoint='https://api.sendblue.co/api/account/webhooks';
+    const res=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({receive:[config]})});
+    const registered=await fetch(endpoint,{headers});
+    const result=await registered.json();
+    const receive=result.webhooks?.receive??result.receive??[];
+    const matched=Array.isArray(receive)&&receive.some(h=>h===url||h?.url===url);
+    return reply(matched?{connected:true}:{error:'Webhook registration could not be verified (HTTP '+res.status+').'});
+  }
   if(body?.action==='checkLine'){
     const id=env('SENDBLUE_API_KEY_ID'), secret=env('SENDBLUE_API_SECRET_KEY'), number=env('SENDBLUE_TEST_NUMBER');
     if(!id||!secret||!number) return reply({error:'Sandbox credentials are missing.'});
@@ -38,11 +62,11 @@ Deno.serve(async req=>{
     if(error||!data) throw Error();
     const turn={role:'user',parts:[{text:message}]};
     const history=[...data.history.slice(-14),turn];
-    const style=JSON.stringify(body.style??{}).slice(0,1200);
+    const style=data.published_style??body.style??{};
     const model=env('GEMINI_MODEL')||'gemini-3.1-flash-lite';
     const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{
       method:'POST',headers:{'x-goog-api-key':key,'Content-Type':'application/json'},signal:AbortSignal.timeout(25000),
-      body:JSON.stringify({contents:history,systemInstruction:{parts:[{text:'You are Matthias’s AI fitness coach in a private fictional test. Give a concise helpful reply using prior turns. Ask at most one follow-up question. Do not diagnose or claim to be the human trainer. Creator style preferences: '+style}]},generationConfig:{maxOutputTokens:512}})
+      body:JSON.stringify({contents:history,systemInstruction:{parts:[{text:trainerInstructions(style)}]},generationConfig:{maxOutputTokens:512}})
     });
     if(!res.ok) return reply({error:res.status===429?'Gemini quota reached. Try again later.':'Gemini rejected the request. Check the key and model.'});
     const payload=await res.json();

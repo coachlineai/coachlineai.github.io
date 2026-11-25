@@ -27,6 +27,7 @@ export async function initCoach(owner, phone) {
   let objectUrl, recorder, database, saving = false;
   const save = $('#save-coach'), publish = $('#publish-coach');
   const number = phoneNumber(phone);
+  function showNumber(number) {
   if (number) {
     const destination = 'sms:' + number;
     const code = qrCode(0, 'M');
@@ -39,6 +40,9 @@ export async function initCoach(owner, phone) {
   } else {
     $('#coach-no-number').hidden = false;
   }
+  }
+  showNumber(number);
+  let pilot=false;
   root.inert = true;
   try {
     database = await openStorage();
@@ -74,10 +78,22 @@ export async function initCoach(owner, phone) {
   async function initPreview() {
     const result=await invokePreview({action:'status'});
     $('#coach-api-test').hidden=false;
+    pilot=true;
+    publish.textContent='Publish coaching style';
+    if(result.phoneLine) showNumber(result.phoneLine);
     displayHistory(result.history);
     if(!result.geminiConfigured) $('#coach-test-status').textContent='Gemini setup is pending.';
   }
   initPreview().catch(()=>{});
+  $('#coach-connect-phone').onclick=async event=>{
+    const button=event.currentTarget;
+    button.disabled=true;
+    try {
+      await invokePreview({action:'connectPhone'});
+      $('#coach-test-status').textContent='Private phone test connected. Text the coach from your registered test phone.';
+    } catch(e){$('#coach-test-status').textContent=e.message;}
+    finally{button.disabled=false;}
+  };
   $('#coach-check-line').onclick=async()=>{
     try {
       const result=await invokePreview({action:'checkLine'});
@@ -210,16 +226,21 @@ export async function initCoach(owner, phone) {
       consent.disabled = false; refreshVoice();
     }
   };
-  function persist(publishing) {
+  async function persist(publishing) {
     if (!database || saving) return;
     if (recorder?.state === 'recording' || consent.disabled) {status.textContent = 'Finish recording before saving.'; return;}
     saving = true; root.inert = true;
+    if(publishing && pilot){
+      const {tone,emoji,styleNotes,greetingExample,text,adjust}=data;
+      try {await invokePreview({action:'publishStyle',style:{tone,emoji,styleNotes,greetingExample,text,adjust}});}
+      catch(e){status.textContent=e.message; saving=false; root.inert=false;return;}
+    }
     const tx = database.transaction('settings','readwrite');
     tx.objectStore('settings').put(data,owner+'/draft');
     if (publishing) tx.objectStore('settings').put(data,owner+'/published');
     tx.oncomplete = () => {
       saving = false; root.inert = false;
-      status.textContent = (publishing ? 'Preview published' : 'Draft saved') + ' on this device';
+      status.textContent = publishing && pilot ? 'Coaching style published' : (publishing ? 'Preview published' : 'Draft saved') + ' on this device';
       $('#coach-next').hidden = !publishing;
     };
     tx.onabort = () => {saving = false; root.inert = false; status.textContent = 'Could not save to this device. Try again.';};
