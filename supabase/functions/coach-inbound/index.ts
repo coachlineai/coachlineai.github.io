@@ -43,15 +43,15 @@ Deno.serve(async req => {
     await indicate('mark-read', tester, pilot.phone_line);
     await indicate('send-typing-indicator', tester, pilot.phone_line, { state: 'start', max_duration_ms: 35000 });
   }
-  const turns=db.from('coach_phone_turns');
+  const turns=()=>db.from('coach_phone_turns');
   let phase='generation_failed';
   try {
-    const {data:previous,error} = await turns.select('question,answer').eq('creator_id',pilot.creator_id).eq('state','accepted').order('received_at',{ascending:false}).limit(7);
+    const {data:previous,error} = await turns().select('question,answer').eq('creator_id',pilot.creator_id).eq('state','accepted').order('received_at',{ascending:false}).limit(7);
     if(error) throw error;
     const contents=previous.reverse().flatMap(t=>[{role:'user',parts:[{text:t.question}]},{role:'model',parts:[{text:t.answer}]}]);
     contents.push({role:'user',parts:[{text:m.content}]});
     const model=encodeURIComponent(env('GEMINI_MODEL')||'gemini-3.1-flash-lite');
-    const generation=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'x-goog-api-key':env('GEMINI_API_KEY')!,'Content-Type':'application/json'},signal:AbortSignal.timeout(22000),body:JSON.stringify({contents,systemInstruction:{parts:[{text:trainerInstructions(pilot.published_style)}]},generationConfig:{maxOutputTokens:512}})});
+    const generation=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'x-goog-api-key':env('GEMINI_API_KEY')!,'Content-Type':'application/json'},signal:AbortSignal.timeout(22000),body:JSON.stringify({contents,systemInstruction:{parts:[{text:trainerInstructions(pilot.published_style) + (previous.length || !/^(hey|hi|hello|yo|whassup|what.?s up)[!.? ]*$/i.test(m.content.trim()) ? '\nAnswer the latest message directly. Skip the sample greeting and opening goal question. Treat a short answer as a response to the previous question.' : '')}]},generationConfig:{maxOutputTokens:512}})});
     if(!generation.ok) throw Error();
     const parts=(await generation.json()).candidates?.[0]?.content?.parts||[];
     const answer=parts.filter((p:{thought?:boolean})=>!p.thought).map((p:{text?:string})=>p.text||'').join('').trim();
@@ -59,9 +59,11 @@ Deno.serve(async req => {
     phase='delivery_unconfirmed';
     const sent=await fetch('https://api.sendblue.co/api/send-message',{method:'POST',headers:{'sb-api-key-id':env('SENDBLUE_API_KEY_ID')!,'sb-api-secret-key':env('SENDBLUE_API_SECRET_KEY')!,'Content-Type':'application/json'},signal:AbortSignal.timeout(10000),body:JSON.stringify({number:tester,from_number:pilot.phone_line,content:answer})});
     if(!sent.ok || !(await sent.json()).message_handle) throw Error();
-    await turns.update({state:'accepted',answer}).eq('handle',m.message_handle);
+    const saved = await turns().update({state:'accepted',answer}).eq('handle',m.message_handle).select('handle').single();
+    if (saved.error) console.error('Could not save delivered coaching turn', saved.error.code);
   } catch {
-    await turns.update({state:phase}).eq('handle',m.message_handle);
+    const failed = await turns().update({state:phase}).eq('handle',m.message_handle).select('handle').single();
+    if (failed.error) console.error('Could not save failed coaching turn', failed.error.code);
   } finally {
     if (showIndicators) await indicate('send-typing-indicator', tester, pilot.phone_line, { state: 'stop' });
   }
