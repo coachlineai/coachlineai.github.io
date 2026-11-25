@@ -3,6 +3,25 @@ import { trainerInstructions } from '../_shared/trainer.ts';
 
 const env = (name: string) => Deno.env.get(name);
 const done = () => new Response(null, { status: 204 });
+async function indicate(path: string, number: string, from_number: string, options = {}) {
+  try {
+    const response = await fetch('https://api.sendblue.com/api/' + path, {
+      method: 'POST',
+      headers: {
+        'sb-api-key-id': env('SENDBLUE_API_KEY_ID')!,
+        'sb-api-secret-key': env('SENDBLUE_API_SECRET_KEY')!,
+        'Content-Type': 'application/json',
+      },
+      signal: AbortSignal.timeout(1500),
+      body: JSON.stringify({ number, from_number, ...options }),
+    });
+    const result = await response.json().catch(() => null);
+    if (!response.ok || result?.status === 'ERROR') console.warn(path, response.status);
+  } catch {
+    console.warn(path, 'unavailable');
+  }
+}
+
 Deno.serve(async req => {
   if (req.method !== 'POST') return new Response(null, {status:405});
   const signature = req.headers.get('sb-signing-secret');
@@ -19,6 +38,11 @@ Deno.serve(async req => {
   const {data:claim,error:claimError} = await db.rpc('claim_phone_turn',{owner_id:pilot.creator_id,inbound_handle:m.message_handle,question_text:m.content});
   if (claimError || claim==='busy') return new Response(null,{status:503});
   if (claim!=='claimed') return done();
+  const showIndicators = !m.service || String(m.service).toLowerCase() === 'imessage';
+  if (showIndicators) {
+    await indicate('mark-read', tester, pilot.phone_line);
+    await indicate('send-typing-indicator', tester, pilot.phone_line, { state: 'start', max_duration_ms: 35000 });
+  }
   const turns=db.from('coach_phone_turns');
   let phase='generation_failed';
   try {
@@ -38,6 +62,8 @@ Deno.serve(async req => {
     await turns.update({state:'accepted',answer}).eq('handle',m.message_handle);
   } catch {
     await turns.update({state:phase}).eq('handle',m.message_handle);
+  } finally {
+    if (showIndicators) await indicate('send-typing-indicator', tester, pilot.phone_line, { state: 'stop' });
   }
   return done();
 });
