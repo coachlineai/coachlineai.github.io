@@ -52,7 +52,22 @@ const photoInstructions = [
 async function loadPhoto(raw: string) {
   const url = new URL(raw);
   if (url.origin !== 'https://storage.googleapis.com' || !url.pathname.startsWith('/inbound-file-store/') || url.username || url.password) throw Error('media source');
-  const res = await fetch(url, {redirect:'error', signal:AbortSignal.timeout(8000)});
+  // Sendblue's inbox renders camera attachments through its image resizer.
+  // Keep the signed source URL intact and request a bounded image for inference.
+  const preview = new URL('https://dashboard.sendblue.com/_next/image');
+  preview.searchParams.set('url', url.href);
+  preview.searchParams.set('w', '1200');
+  preview.searchParams.set('q', '75');
+  const cameraFormat = /\.(jpe?g|heic|heif)$/i.test(url.pathname);
+  try {
+    return await readPhoto(cameraFormat ? preview : url);
+  } catch {
+    return await readPhoto(cameraFormat ? url : preview);
+  }
+}
+
+async function readPhoto(url: URL) {
+  const res = await fetch(url, {redirect:'error', headers:{Accept:'image/webp,image/jpeg,image/png,*/*'}, signal:AbortSignal.timeout(12000)});
   const limit = 8 * 1024 * 1024;
   if (!res.ok || !res.body || Number(res.headers.get('content-length')) > limit) {
     await res.body?.cancel();
@@ -112,19 +127,22 @@ Deno.serve(async req => {
     if(error) throw error;
     const contents=previous.reverse().flatMap(t=>[{role:'user',parts:[{text:t.question}]},{role:'model',parts:[{text:t.answer}]}]);
     let answer: string;
+    let photoStage = 'attachment';
     try {
       const userParts: Array<{text:string} | Awaited<ReturnType<typeof loadPhoto>>> = [{text:question}];
       if (media) userParts.push(await loadPhoto(media));
       contents.push({role:'user',parts:userParts});
       const model=encodeURIComponent(env('GEMINI_MODEL')||'gemini-3.1-flash-lite');
-      const generation=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'x-goog-api-key':env('GEMINI_API_KEY')!,'Content-Type':'application/json'},signal:AbortSignal.timeout(22000),body:JSON.stringify({contents,systemInstruction:{parts:[{text:trainerInstructions(pilot.published_style) + (media ? '\n' + photoInstructions : '') + (previous.length || !/^(hey|hi|hello|yo|whassup|what.?s up)[!.? ]*$/i.test(question) ? '\nAnswer the latest message directly. Skip the sample greeting and opening goal question. Treat a short answer as a response to the previous question.' : '')}]},generationConfig:{maxOutputTokens:512}})});
-      if(!generation.ok) throw Error();
+      photoStage = 'analysis';
+      const generation=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{method:'POST',headers:{'x-goog-api-key':env('GEMINI_API_KEY')!,'Content-Type':'application/json'},signal:AbortSignal.timeout(22000),body:JSON.stringify({contents,systemInstruction:{parts:[{text:trainerInstructions(pilot.published_style) + (media ? '\n' + photoInstructions : '') + (previous.length || !/^(hey|hi|hello|yo|whassup|what.?s up)[!.? ]*$/i.test(question) ? '\nAnswer the latest message directly. Skip the sample greeting and opening goal question. Treat a short answer as a response to the previous question.' : '')}]},generationConfig:{maxOutputTokens:media ? 2048 : 512}})});
+      if(!generation.ok) throw Error('model HTTP ' + generation.status);
       const parts=(await generation.json()).candidates?.[0]?.content?.parts||[];
       answer=parts.filter((p:{thought?:boolean})=>!p.thought).map((p:{text?:string})=>p.text||'').join('').trim();
-      if(!answer) throw Error();
+      if(!answer) throw Error('empty model reply');
     } catch (error) {
       if (!media) throw error;
-      answer = 'I couldn’t read that photo. Try a smaller photo or screenshot, or describe what’s in it and what you’d like to know.';
+      console.warn('Photo processing failed', photoStage, error instanceof Error && /^(media source|media unavailable|photo too large|unsupported attachment|empty model reply|model HTTP [0-9]{3})$/.test(error.message) ? error.message : 'request failed');
+      answer = photoStage === 'analysis' ? 'I received the photo, but the image analysis didn’t finish. Please try it again in a moment.' : 'I couldn’t read that photo. Try a smaller photo or screenshot, or describe what’s in it and what you’d like to know.';
     }
     const prefix = media && answer.match(/^(\p{Extended_Pictographic}\uFE0F?)\s+(?=\S)/u);
     if (prefix && foodEmoji.has(prefix[1].replace('\uFE0F','')) && showIndicators) {
