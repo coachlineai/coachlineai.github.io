@@ -2,7 +2,7 @@ import {initSettings, showSettingsTab} from './settings.js?v=delete1';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import { initCoach } from './coach.js?v=pilot1';
+import { initCoach } from './coach.js?v=phonepilot2';
 import {initBilling} from './billing.js?v=payout15';
 import { initIncome } from './income.js?v=payout15';
 import { showClients } from './clients.js';
