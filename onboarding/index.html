@@ -19,6 +19,11 @@
 .trend{background:#f7f6fa;padding:24px;border-radius:22px;margin:0}.trend figcaption{font-weight:650}.trend svg{display:block;width:100%;margin:16px 0}.legend,.months{display:flex;justify-content:space-between;align-items:center;gap:8px}.legend{font-size:14px}.legend b{color:#5849cd}.months{font-size:13px;color:#6a6573}.trend p{font-size:15px;margin:22px 0 0}
 dialog{border:0;border-radius:22px;padding:26px;color:inherit;max-width:min(380px,90vw);box-shadow:0 24px 80px #211e2944}dialog::backdrop{background:#211e2980}dialog h2{margin:0 0 12px}dialog .next{width:100%}
 @media(max-width:640px){footer{position:sticky;bottom:0;padding:10px 0 max(8px,env(safe-area-inset-bottom));background:white;z-index:2}}
+form.celebrating{justify-content:center;text-align:center}form.celebrating h1{margin-top:auto}form.celebrating .fields{margin:0;padding:0}
+h1 em,.estimate em{color:#6452c7;font-style:normal}.confetti{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:3}.confetti i{position:absolute;top:0;width:7px;height:12px;border-radius:2px}
+.pace{text-align:center}.pace output{display:block;font-size:clamp(32px,6vw,44px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.04em;margin:8px 0 24px}
+.animals{display:flex;justify-content:space-between}.animals span{min-width:56px;font-size:28px;filter:grayscale(1);opacity:.65}.animals .on{filter:none;opacity:1}.animals small{display:block;font-size:14px}.on small{color:#5645bd;font-weight:650}.pace input{width:100%;height:44px;margin:6px 0 12px;accent-color:#6556ef;cursor:pointer}
+.estimate,.features{background:#f7f6fa;border-radius:18px;padding:20px;text-align:left}.estimate strong,.estimate small{display:block}.estimate em{margin-left:4px}.estimate p,.features p{margin:5px 0 10px}.features{margin:0;list-style:none}.features li{display:flex;gap:14px;align-items:flex-start;padding:16px 0}.features li+li{border-top:1px solid #e3e0ed}.features b{border-radius:12px;background:#e9e6ff;color:#5543be;width:38px;height:38px;display:grid;place-items:center;flex:none}.features p{margin-bottom:0}
 </style>
 <main><header><b aria-hidden="true">✦</b> Coachline</header><nav aria-label="Onboarding progress"><button class="back" type="button" aria-label="Previous step">←</button><div class="track"><div class="fill"></div></div><small id="step"></small></nav><form><h1 tabindex="-1"></h1><p id="hint"></p><div class="fields"></div><footer><span role="status" id="status"></span><button class="next">Continue</button><a class="return" hidden href="sms:+16177106179">Return to Messages</a></footer></form></main>
 <dialog aria-labelledby="age-title" aria-describedby="age-description"><h2 id="age-title">Coachline is for ages 13 and up</h2><p id="age-description">You can start coaching once you turn 13.</p><button class="next" type="button" autofocus>OK</button></dialog>
@@ -94,14 +99,22 @@ function heightPicker(fields){
   panel.append(...controls.map(c=>c.el));controls.forEach(c=>c.position());
  });
 }
-function weightPicker(fields){
+function weightPicker(fields,target=false){
  toggle(fields,'weight',['lbs','kg'],panel=>{
   panel.className='weight';
   panel.innerHTML='<small>Current weight</small><output aria-hidden="true"></output><div class="ruler" role="slider" tabindex="0" aria-label="Current weight"></div><div class="adjust"><button class="nudge" type="button" aria-label="Decrease weight">−</button><small>Drag to adjust</small><button class="nudge" type="button" aria-label="Increase weight">+</button></div>';
   const ruler=panel.querySelector('.ruler'),output=panel.querySelector('output');
   const factor=units.weight==='lbs'?.45359237:1;
-  const min=Math.ceil(15/factor*10),max=Math.floor(500/factor*10);
-  let ticks=clamp(Math.round(weightKg/factor*10),min,max),previous='';
+  let min=Math.ceil(15/factor*10),max=Math.floor(500/factor*10);
+  if(target){
+   panel.querySelector('small').textContent=answers[11];
+   ruler.setAttribute('aria-label','Desired weight');
+   if(answers[11]==='Lose weight'){
+    min=Math.max(min,Math.ceil(18.5*(heightCm/100)**2/factor*10));
+    max=Math.min(max,Math.ceil(weightKg/factor*10));
+   }else min=Math.max(min,Math.floor(weightKg/factor*10));
+  }
+  let ticks=clamp(Math.round((target?(desiredKg??weightKg):weightKg)/factor*10),min,max),previous='';
   ruler.setAttribute('aria-valuemin',min/10);ruler.setAttribute('aria-valuemax',max/10);
   function paint(){
    const number=(ticks/10).toFixed(1);output.replaceChildren();
@@ -111,7 +124,10 @@ function weightPicker(fields){
    ruler.style.setProperty('--shift',(ruler.clientWidth/2%80-(ticks%10)*8)+'px');
    ruler.setAttribute('aria-valuenow',number);ruler.setAttribute('aria-valuetext',number+' '+units.weight);
   }
-  function change(value){const next=clamp(value,min,max);if(next!==ticks){ticks=next;weightKg=ticks/10*factor;paint()}}
+  function change(value){const next=clamp(value,min,max);if(next!==ticks){ticks=next;
+   if(target){desiredKg=ticks/10*factor;answers[12]=validTarget()?'target':'';$('form .next').disabled=!answers[12]}
+   else{weightKg=ticks/10*factor;desiredKg=null;answers[12]=''}
+   paint()}}
   let start;
   ruler.onpointerdown=e=>{if(e.button!==0)return;start={x:e.clientX,ticks};ruler.setPointerCapture(e.pointerId)};
   ruler.onpointermove=e=>{if(start)change(start.ticks+Math.round((start.x-e.clientX)/8))};
@@ -123,6 +139,99 @@ function weightPicker(fields){
 function trend(fields){
  fields.innerHTML='<figure class="trend"><figcaption>Building a routine</figcaption><svg viewBox="0 0 320 130" role="img" aria-label="Illustration of a routine becoming more consistent over six months"><path d="M8 40H312 M8 80H312 M8 120H312" fill="none" stroke="#dedbe7" stroke-dasharray="3 4"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16 L312 120 H8Z" fill="#ebe8ff"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16" fill="none" stroke="#6556ef" stroke-width="3"/><circle cx="312" cy="16" r="5" fill="#6556ef"/></svg><div class="months"><span>Month 1</span><span>Month 6</span></div><p><strong>✦ Coachline</strong><br>Snap a meal, scan gym equipment, or text your AI coach about your next workout.</p></figure>';
 }
+const LB_KG = 0.45359237;
+const adultGoals = [['Lose weight','↓'],['Maintain','–'],['Gain weight','↑']];
+const habitGoals = [['Build strength','↑'],['Build endurance','↗'],['Build a routine','↻']];
+const barriers = [['Lack of consistency','↻'],['Unhealthy eating habits','♧'],['Lack of support','♡'],['Busy schedule','◷'],['Lack of meal inspiration','✧']];
+let desiredKg = null;
+let paceLb = 0.5;
+function clientAge(){
+ const today=localToday(),birth=answers[3];
+ return Number(today.slice(0,4))-Number(birth.slice(0,4))-Number(today.slice(5)<birth.slice(5));
+}
+function isChangeGoal(){return answers[11]==='Lose weight'||answers[11]==='Gain weight'}
+function availableGoals(){
+ if(clientAge()<18)return habitGoals;
+ return adultGoals.filter(([goal])=>goal==='Maintain'||(goal==='Lose weight'
+  ? weightKg-Math.max(15,18.5*(heightCm/100)**2)>=0.15 : weightKg<=499.85));
+}
+function route(){
+ const omitChangeSteps=Boolean(answers[3]&&clientAge()<18)||Boolean(answers[11]&&!isChangeGoal());
+ return steps.map((_,i)=>i).filter(i=>!omitChangeSteps||(i!==12&&i!==14));
+}
+function refreshProgress(){
+ const path=route(),number=path.indexOf(index)+1;
+ $('#step').textContent=number+' of '+path.length;
+ $('.fill').style.width=number/path.length*100+'%';
+}
+function validTarget(){
+ if(desiredKg===null)return false;
+ const delta=desiredKg-weightKg;
+ return answers[11]==='Lose weight'?delta < -0.001 && desiredKg>=18.5*(heightCm/100)**2 : delta>0.001;
+}
+function confirmation(fields){
+ const title=$('h1');title.replaceChildren();
+ if(isChangeGoal()){
+  const delta=Math.abs(desiredKg-weightKg)/(units.weight==='lbs'?LB_KG:1);
+  const number=document.createElement('em');number.textContent=delta.toFixed(1)+' '+units.weight;
+  title.append(answers[11]==='Lose weight'?'Losing ':'Gaining ',number,' starts with a plan.');
+ }else title.textContent=answers[11]==='Maintain'?'Your goal is to hold steady.':'Your goal is to '+answers[11].toLowerCase()+'.';
+ $('#hint').textContent='Let’s build a routine around the time and support you have.';
+ if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const burst=document.createElement('div');burst.className='confetti';burst.setAttribute('aria-hidden','true');fields.append(burst);
+ const colors=['#7767ef','#e9b262','#3ba59c','#ff929e'];
+ for(let i=0;i<42;i++){
+  const bit=document.createElement('i');burst.append(bit);
+  bit.style.left=Math.random()*100+'%';bit.style.background=colors[i%colors.length];
+  bit.animate?.([{transform:'translate(0,-12px) rotate(0)',opacity:1},{transform:'translate('+((Math.random()-.5)*160)+'px,68vh) rotate('+(180+Math.random()*520)+'deg)',opacity:0}],{duration:950+Math.random()*550,delay:Math.random()*300,fill:'both',easing:'ease-in'});
+ }
+ setTimeout(()=>burst.remove(),1900);
+}
+function calendarEstimate(weeks){
+ if(weeks<1)return 'under a week';
+ const months=weeks*7/30.44;
+ const count=Math.max(1,Math.round(months>=2?months:weeks));
+ return count+' '+(months>=2?'month':'week')+(count===1?'':'s');
+}
+function pacePicker(fields){
+ const losing=answers[11]==='Lose weight';
+ const max=losing?2:1;
+ paceLb=clamp(paceLb,0.1,max);
+ fields.innerHTML='<section class="pace"><label for="pace-control">Weekly '+(losing?'loss':'gain')+' pace</label><output id="pace-value" for="pace-control"></output><div class="animals" aria-hidden="true"><span>🦥<small>Gentle</small></span><span>🐇<small>Steady</small></span><span>🐆<small>Fast</small></span></div><input id="pace-control" type="range" min="1" step="1"><div class="estimate"><strong>Estimated time <em></em></strong><p></p><small></small></div></section>';
+ const slider=fields.querySelector('input');slider.max=Math.round(max*10);slider.value=Math.round(paceLb*10);
+ function paint(){
+  paceLb=Number(slider.value)/10;
+  const rate=units.weight==='lbs'?paceLb.toFixed(1)+' lb':(paceLb*LB_KG).toFixed(2)+' kg';
+  fields.querySelector('output').textContent=rate+' / week';slider.setAttribute('aria-valuetext',rate+' per week');
+  const band=paceLb<max*.25?0:paceLb<=max*.7?1:2;
+  fields.querySelectorAll('.animals span').forEach((el,i)=>el.classList.toggle('on',i===band));
+  const weeks=Math.abs(desiredKg-weightKg)/(LB_KG*paceLb);
+  fields.querySelector('em').textContent=calendarEstimate(weeks);
+  fields.querySelector('.estimate p').textContent=['A smaller daily change gives you more time to build your routine.','This pace spreads the change across your weekly routine.','A faster pace calls for a larger daily change.'][band];
+  // Adult resting energy estimate, scaled by reported exercise frequency.
+  const base=10*weightKg+6.25*heightCm-5*clientAge();
+  const activity={'0–2':1.3,'3–5':1.5,'6+':1.7}[answers[2]];
+  const offsets=answers[1]==='Male'?[5]:answers[1]==='Female'?[-161]:[-161,5];
+  // A static energy equivalent for comparing paces. Actual energy needs change over time.
+  const estimates=offsets.map(offset=>Math.round((base+offset)*activity+(losing?-1:1)*paceLb*3500/7));
+  const message=estimates[0]<Math.max(1500,base+offsets[0])||estimates.at(-1)>5000
+    ? 'A daily calorie estimate is unavailable at this pace.'
+    : 'Estimated daily intake · '+estimates.map(kcal=>kcal.toLocaleString()).join('–')+' kcal';
+  fields.querySelector('.estimate small').textContent=message;
+ }
+ slider.oninput=paint;paint();
+}
+function coachFeatures(fields){
+ const list=document.createElement('ul');list.className='features';fields.append(list);
+ for(const [icon,title,copy] of [
+  ['◉','Snap your meal','Send a food or drink photo for a calorie estimate.'],
+  ['↗','Scan gym equipment','See what it trains and get a video demonstration.'],
+  ['✦','Text your AI coach','Ask for a workout that fits the time and equipment you have.']
+ ]){
+  const li=document.createElement('li');li.innerHTML='<b aria-hidden="true">'+icon+'</b><div><strong>'+title+'</strong><p>'+copy+'</p></div>';list.append(li);
+ }
+}
+
 const steps=[
  ['What should we call you?','',[]],
  ['Choose your sex','Choose what you’d like to share with your coach.',[['Male','♂'],['Female','♀'],['Other','◇'],['Prefer not to say','—']]],
@@ -133,12 +242,19 @@ const steps=[
  ['Have you tried fitness apps before?','Think about workout plans, exercise demos, or coaching apps.',yesNo],
  ['Designed to help you stay on track','',[]],
  ['What is your height?','Your coach uses this as part of your starting profile.',[]],
- ['What is your current weight?','Slide the ruler to choose your starting weight.',[]]
+ ['What is your current weight?','Slide the ruler to choose your starting weight.',[]],
+ ['Do you work with a personal trainer or registered dietitian?','',yesNo],
+ ['What is your goal?','Choose what you want your coach to help you work toward.',[]],
+ ['What is your desired weight?','Slide the ruler to choose your target.',[]],
+ ['Your goal','',[]],
+ ['How fast do you want to reach your goal?','Compare paces. These rough estimates can change as your routine changes.',[]],
+ ['A simpler way to stay on track','Here’s what you can do in a conversation with Coachline.',[]],
+ ['What’s stopping you from reaching your goals?','Choose the biggest obstacle for you right now.',barriers]
 ];
-const answers=['','','','','','','','continue','height','weight'];let index=0,busy=false,blocked=false;
+const answers=['','','','','','','','continue','height','weight','','','','confirm','pace','features',''];let index=0,busy=false,blocked=false;
 function fadeInStep() {
  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
- for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .fields > .wheels, .fields > .units, .fields > .trend, .fields > .weight, .return:not([hidden])')) {
+ for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .fields > .wheels, .fields > .units, .fields > .trend, .fields > .weight, .fields > .pace, .fields > .features, .return:not([hidden])')) {
    element.getAnimations?.().forEach(animation => animation.cancel());
    element.animate?.([{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
  }
@@ -155,8 +271,10 @@ function fadeInStep() {
  });
 }
 function render(){
- const [title,hint,options]=steps[index];
- $('h1').textContent=title;$('#hint').textContent=hint;$('#step').textContent=(index+1)+' of '+steps.length;$('.fill').style.width=(index+1)/steps.length*100+'%';$('.back').disabled=index===0;
+ const [title,hint,choices]=steps[index];
+ const options=index===11?availableGoals():choices;
+ $('form').classList.toggle('celebrating',index===13);
+ $('h1').textContent=title;$('#hint').textContent=hint;refreshProgress();$('.back').disabled=index===0;
  const fields=$('.fields');fields.replaceChildren();fields.classList.toggle('name',index===0);
  if(index===0){fields.innerHTML='<label>Your name<input name="name" autocomplete="given-name" maxlength="60" placeholder="First name or nickname"></label>';const input=fields.querySelector('input');input.value=answers[0];input.oninput=()=>{answers[0]=input.value;$('form .next').disabled=!input.value.trim()};}
  fields.classList.toggle('referrals',index===4);
@@ -164,10 +282,16 @@ function render(){
  if(index===7)trend(fields);
  if(index===8)heightPicker(fields);
  if(index===9)weightPicker(fields);
+ if(index===12){answers[12]=validTarget()?'target':'';weightPicker(fields,true)}
+ if(index===13)confirmation(fields);
+ if(index===14)pacePicker(fields);
+ if(index===15)coachFeatures(fields);
  for(const [value,icon,detail] of options){
  const label=document.createElement('label');label.className='option';
  label.innerHTML='<span aria-hidden="true" class="symbol">'+icon+'</span><span><strong>'+value+'</strong>'+(detail?'<small>'+detail+'</small>':'')+'</span><input type="radio" name="choice">';
- const radio=label.querySelector('input');radio.checked=answers[index]===value;radio.onchange=()=>{answers[index]=value;$('form .next').disabled=false};fields.append(label);
+ const radio=label.querySelector('input');radio.checked=answers[index]===value;radio.onchange=()=>{
+ if(index===11&&answers[11]!==value){desiredKg=null;answers[12]='';paceLb=.5}
+ answers[index]=value;refreshProgress();$('form .next').disabled=false};fields.append(label);
  }
  $('form .next').textContent=index===steps.length-1?'Finish setup':'Continue';$('form .next').disabled=!answers[index].trim()||(index===3&&answers[3]>localToday());$('#status').textContent=!ticket?'Preview · Text your coach for your personal setup link.':'';
  fadeInStep();
@@ -180,7 +304,7 @@ ageDialog.onclose=()=>{if(blocked){
  $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;
  $('h1').textContent='Come back when you’re 13.';$('#hint').textContent='You must be at least 13 to use Coachline.';$('#status').textContent='';$('h1').focus();
 }};
-$('.back').onclick=()=>{if(index && !busy){index--;render();$('h1').focus()}};
+$('.back').onclick=()=>{if(index && !busy){const path=route();index=path[path.indexOf(index)-1];render();$('h1').focus()}};
 $('form').onsubmit=async event=>{
  event.preventDefault();if(blocked||busy||!answers[index].trim())return;
  if(index===3){
@@ -202,11 +326,15 @@ $('form').onsubmit=async event=>{
    return;
   }
  }
- if(index<steps.length-1){index++;render();$('h1').focus();return}
+ if(index<steps.length-1){
+  if(index<=10 && answers[11] && !availableGoals().some(([value])=>value===answers[11])){
+   answers[11]=answers[12]='';desiredKg=null;
+  }
+  const path=route();index=path[path.indexOf(index)+1];render();$('h1').focus();return}
  if(!ticket){$('#status').textContent='To save your profile, open the personal link from your coaching conversation.';return}
  busy=true;$('form .next').disabled=$('.back').disabled=true;$('#status').textContent='Saving your profile…';
  try{
- const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(3)})});
+ const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(5),has_trainer:answers[10]==='Yes',goal:answers[11],target_kg:isChangeGoal()?+desiredKg.toFixed(5):null,weekly_lb:isChangeGoal()?paceLb:null,barrier:answers[16]})});
  if(!response.ok||await response.json()!==true)throw Error();
  $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;$('h1').textContent='You’re ready to train.';$('#hint').textContent='Head back to Messages and tell your coach what you want to work on.';$('#status').textContent='';$('.return').hidden=false;fadeInStep();$('h1').focus();
  }catch{$('#status').textContent='Couldn’t save. Try again, or text your coach for a fresh link.';$('form .next').disabled=$('.back').disabled=false}finally{busy=false}
