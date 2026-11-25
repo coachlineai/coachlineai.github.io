@@ -3,20 +3,142 @@
 <style>
 *{box-sizing:border-box}body{margin:0;color:#201e29;background:#f7f7fa;font:16px/1.45 Inter,system-ui,sans-serif}main{background:white;max-width:620px;margin:clamp(0px,5vh,52px) auto;padding:32px clamp(22px,5vw,54px);border:1px solid #e6e4eb;border-radius:30px;display:flex;flex-direction:column;min-height:min(790px,90dvh)}header,nav,label.option{display:flex;align-items:center}header{gap:8px;font-weight:750;letter-spacing:-.5px}header b{background:#6556ef;color:white;border-radius:50%;width:27px;text-align:center;font-size:19px}nav{gap:16px;margin:34px 0 20px}button,input{font:inherit}button{cursor:pointer}.back{border:0;border-radius:50%;height:44px;width:44px;background:#f4f3f7;font-size:22px}.back:disabled{opacity:.38}.track{height:4px;flex:1;background:#eeedf1;border-radius:8px;overflow:hidden}.fill{height:100%;background:#24212b;transition:width .2s}small{color:#706b7a}h1{letter-spacing:-.052em;line-height:1.07;font-size:clamp(34px,6vw,49px);margin:12px 0}p{color:#655f6e;margin:0 0 20px}form{display:flex;flex:1;flex-direction:column}.fields{margin:auto 0;padding:32px 0}.fields.name{margin:0}.name label{display:grid;gap:6px;color:#5d5766;font-size:14px}.name input{font-size:20px;border:1.5px solid #b8b5c0;border-radius:16px;padding:16px;width:100%}label.option{gap:14px;cursor:pointer;border:1px solid #dedce4;border-radius:16px;padding:13px 16px;margin:10px 0;min-height:68px}.option:has(:checked){box-shadow:inset 0 0 0 1px #25212d;border-color:#25212d;background:#faf9fc}.symbol{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#f5f4f8;font-size:20px}.option strong,.option small{display:block}.option input{margin-left:auto;width:20px;height:20px;accent-color:#24212b}.next,.return{background:#211e29;color:white;border:0;border-radius:99px;padding:16px 24px;font-weight:650;text-align:center;text-decoration:none}.next:disabled{background:#d6d4da;color:#55505c;cursor:default}footer{margin-top:auto;display:grid;gap:10px}#status{color:#655f6e;font-size:14px}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #7566ea;outline-offset:3px}[hidden]{display:none!important}@media(max-width:640px){body{background:white}main{border:0;border-radius:0;margin:0;min-height:100dvh;padding:24px 22px max(20px,env(safe-area-inset-bottom))}nav{margin-top:25px}}
 @media(prefers-reduced-motion:reduce){.fill{transition:none}}
+.fields.referrals{padding:10px 0 20px}.referrals label.option{min-height:52px;margin:7px 0;padding:7px 14px}
+.referrals .symbol{font-weight:700;font-size:16px}
+.wheels{display:flex;justify-content:center;position:relative;isolation:isolate;margin:12px 0}
+.wheels::before{content:"";position:absolute;inset:calc(50% - 22px) 0 auto;height:44px;border-radius:30px;background:#f1f0f5;z-index:-1}
+.wheel{height:220px;flex:1;min-width:0;max-width:185px;text-align:center;overflow:auto;overscroll-behavior:contain;scroll-snap-type:y mandatory;scrollbar-width:none;padding:88px 0;mask-image:linear-gradient(transparent,#000 35% 65%,transparent)}
+.wheel::-webkit-scrollbar{display:none}.wheel div{height:44px;line-height:44px;scroll-snap-align:center;font-size:19px;color:#625e6b;cursor:pointer}.wheel div.active{color:#211e29;font-weight:650}
+.units{display:flex;margin:0 auto 32px;padding:3px;background:#efedf3;border-radius:100px;width:min(210px,100%)}
+.units button{border:0;border-radius:inherit;background:transparent;flex:1;padding:8px}.units [aria-pressed=true]{background:white;box-shadow:0 1px 4px #201e2914}
+.weight{text-align:center}.weight small{display:block}.weight output{display:block;font-size:clamp(34px,7vw,46px);font-weight:680;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.weight output span{display:inline-block}
+.ruler{position:relative;height:78px;overflow:hidden;touch-action:pan-y;cursor:ew-resize;user-select:none;margin:12px 0 0;border-radius:5px}
+.ruler::before{content:"";position:absolute;inset:0;background-image:repeating-linear-gradient(to right,#797582 0 1px,transparent 1px 80px),repeating-linear-gradient(to right,#aaa7b0 0 1px,transparent 1px 8px);background-size:100% 42px,100% 25px;background-repeat:no-repeat;background-position:0 bottom;transform:translateX(var(--shift));left:-80px;right:-80px}
+.ruler::after{content:"";position:absolute;bottom:0;left:50%;width:2px;height:64px;background:#25212c}.ruler:focus-visible,.wheel:focus-visible{outline:3px solid #7566ea}
+.nudge{border:1px solid #dedce4;background:white;border-radius:50%;width:44px;height:44px}.adjust{display:flex;align-items:center;justify-content:center;gap:22px;margin:18px 0}.adjust small{min-width:110px}
+.trend{background:#f7f6fa;padding:24px;border-radius:22px;margin:0}.trend figcaption{font-weight:650}.trend svg{display:block;width:100%;margin:16px 0}.legend,.months{display:flex;justify-content:space-between;align-items:center;gap:8px}.legend{font-size:14px}.legend b{color:#5849cd}.months{font-size:13px;color:#6a6573}.trend p{font-size:15px;margin:22px 0 0}
+dialog{border:0;border-radius:22px;padding:26px;color:inherit;max-width:min(380px,90vw);box-shadow:0 24px 80px #211e2944}dialog::backdrop{background:#211e2980}dialog h2{margin:0 0 12px}dialog .next{width:100%}
+@media(max-width:640px){footer{position:sticky;bottom:0;padding:10px 0 max(8px,env(safe-area-inset-bottom));background:white;z-index:2}}
 </style>
 <main><header><b aria-hidden="true">✦</b> Coachline</header><nav aria-label="Onboarding progress"><button class="back" type="button" aria-label="Previous step">←</button><div class="track"><div class="fill"></div></div><small id="step"></small></nav><form><h1 tabindex="-1"></h1><p id="hint"></p><div class="fields"></div><footer><span role="status" id="status"></span><button class="next">Continue</button><a class="return" hidden href="sms:+16177106179">Return to Messages</a></footer></form></main>
+<dialog aria-labelledby="age-title" aria-describedby="age-description"><h2 id="age-title">Coachline is for ages 13 and up</h2><p id="age-description">You can start coaching once you turn 13.</p><button class="next" type="button" autofocus>OK</button></dialog>
 <script type="module">
 const $=s=>document.querySelector(s);
 const ticket=location.hash.slice(1);
+const sources=[['TikTok','♪'],['X','𝕏'],['Google','G'],['YouTube','▶'],['Instagram','◎'],['Friend or family','♡'],['Other','…']];
+const yesNo=[['Yes','✓'],['No','−']];
+const dob={year:0,month:0,day:0};
+const units={height:'ft, in',weight:'lbs'};
+let heightCm=167.64, weightKg=166.4*.45359237;
+const range=(min,max)=>Array.from({length:max-min+1},(_,i)=>min+i);
+const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));
+function isoDate(y,m,d){return [y,String(m).padStart(2,'0'),String(d).padStart(2,'0')].join('-')}
+function localToday(){const now=new Date();return isoDate(now.getFullYear(),now.getMonth()+1,now.getDate())}
+function oldEnough(birth,today){return Number(today.slice(0,4))-Number(birth.slice(0,4))-(today.slice(5)<birth.slice(5)?1:0)>=13}
+function wheel(label,items,selected,onChange){
+ const el=document.createElement('div');el.className='wheel';el.tabIndex=0;
+ el.setAttribute('role','spinbutton');el.setAttribute('aria-label',label);
+ el.setAttribute('aria-valuemin',0);el.setAttribute('aria-valuemax',items.length-1);
+ let active=-1;
+ function set(i,notify){
+   if(i===active)return;
+   el.children[active]?.classList.remove('active');active=i;
+   el.children[i].classList.add('active');el.setAttribute('aria-valuenow',i);el.setAttribute('aria-valuetext',items[i]);
+   if(notify)onChange(i);
+ }
+ items.forEach((item,i)=>{const row=document.createElement('div');row.textContent=item;row.setAttribute('aria-hidden','true');row.onclick=()=>move(i);el.append(row)});
+ function move(i){const next=clamp(i,0,items.length-1);el.scrollTop=next*44;set(next,true)}
+ el.onkeydown=e=>{
+  const keys={ArrowDown:active+1,ArrowUp:active-1,PageDown:active+10,PageUp:active-10,Home:0,End:items.length-1};
+  if(e.key in keys){e.preventDefault();move(keys[e.key])}
+ };
+ set(selected,false);
+ return {el,position(){el.scrollTop=selected*44;el.onscroll=()=>set(clamp(Math.round(el.scrollTop/44),0,items.length-1),true)}};
+}
+function birthday(fields){
+ const group=document.createElement('div');group.className='wheels';fields.append(group);
+ function sync(){
+  const value=dob.year&&dob.month&&dob.day?isoDate(dob.year,dob.month,dob.day):'';
+  answers[3]=value;$('form .next').disabled=!value||value>localToday();
+  if(value>localToday())$('#status').textContent='Choose a birthday in the past.';
+  else if(ticket||$('#status').textContent.startsWith('Choose a birthday'))$('#status').textContent='';
+ }
+ let dayWheel;
+ function days(){
+  const total=new Date(dob.year||2000,dob.month||1,0).getDate();dob.day=Math.min(dob.day,total);
+  const control=wheel('Day',['Day',...range(1,total)],dob.day,i=>{dob.day=i;sync()});
+  if(dayWheel)dayWheel.replaceWith(control.el);else group.append(control.el);
+  dayWheel=control.el;control.position();
+ }
+ const month=wheel('Month',['Month',...range(0,11).map(i=>new Date(2000,i,1).toLocaleString('en-US',{month:'long'}))],dob.month,i=>{dob.month=i;days();sync()});
+ const years=[0,...range(1900,new Date().getFullYear()).reverse()];
+ const year=wheel('Year',years.map(y=>y||'Year'),years.indexOf(dob.year),i=>{dob.year=years[i];days();sync()});
+ group.append(month.el);days();group.append(year.el);month.position();year.position();sync();
+}
+function toggle(fields,key,choices,draw){
+ const bar=document.createElement('div');bar.className='units';bar.setAttribute('role','group');bar.setAttribute('aria-label',key+' units');
+ const panel=document.createElement('div');fields.append(bar,panel);
+ const update=()=>{for(const b of bar.children)b.setAttribute('aria-pressed',b.textContent===units[key]);panel.replaceChildren();draw(panel)};
+ choices.forEach(unit=>{const b=document.createElement('button');b.type='button';b.textContent=unit;b.onclick=()=>{if(units[key]!==unit){units[key]=unit;update()}};bar.append(b)});update();
+}
+function heightPicker(fields){
+ toggle(fields,'height',['ft, in','cm'],panel=>{
+  panel.className='wheels';const controls=[];
+  if(units.height==='cm'){
+   const cms=range(61,272);controls.push(wheel('Centimeters',cms.map(v=>v+' cm'),clamp(Math.round(heightCm)-61,0,cms.length-1),i=>heightCm=cms[i]));
+  }else{
+   const inches=clamp(Math.round(heightCm/2.54),24,107);let ft=Math.floor(inches/12),inch=inches%12;
+   controls.push(wheel('Feet',range(2,8).map(v=>v+' ft'),ft-2,i=>{ft=i+2;heightCm=(ft*12+inch)*2.54}),
+    wheel('Inches',range(0,11).map(v=>v+' in'),inch,i=>{inch=i;heightCm=(ft*12+inch)*2.54}));
+  }
+  panel.append(...controls.map(c=>c.el));controls.forEach(c=>c.position());
+ });
+}
+function weightPicker(fields){
+ toggle(fields,'weight',['lbs','kg'],panel=>{
+  panel.className='weight';
+  panel.innerHTML='<small>Current weight</small><output aria-hidden="true"></output><div class="ruler" role="slider" tabindex="0" aria-label="Current weight"></div><div class="adjust"><button class="nudge" type="button" aria-label="Decrease weight">−</button><small>Drag to adjust</small><button class="nudge" type="button" aria-label="Increase weight">+</button></div>';
+  const ruler=panel.querySelector('.ruler'),output=panel.querySelector('output');
+  const factor=units.weight==='lbs'?.45359237:1;
+  const min=Math.ceil(15/factor*10),max=Math.floor(500/factor*10);
+  let ticks=clamp(Math.round(weightKg/factor*10),min,max),previous='';
+  ruler.setAttribute('aria-valuemin',min/10);ruler.setAttribute('aria-valuemax',max/10);
+  function paint(){
+   const number=(ticks/10).toFixed(1);output.replaceChildren();
+   [...number].forEach((digit,i)=>{const span=document.createElement('span');span.textContent=digit;output.append(span);
+    if(previous&&digit!==previous[i]&&!matchMedia('(prefers-reduced-motion: reduce)').matches)span.animate?.([{transform:'translateY(.17em)',filter:'blur(2px)'},{transform:'none',filter:'none'}],{duration:125});});
+   output.append(' '+units.weight);previous=number;
+   ruler.style.setProperty('--shift',(ruler.clientWidth/2%80-(ticks%10)*8)+'px');
+   ruler.setAttribute('aria-valuenow',number);ruler.setAttribute('aria-valuetext',number+' '+units.weight);
+  }
+  function change(value){const next=clamp(value,min,max);if(next!==ticks){ticks=next;weightKg=ticks/10*factor;paint()}}
+  let start;
+  ruler.onpointerdown=e=>{if(e.button!==0)return;start={x:e.clientX,ticks};ruler.setPointerCapture(e.pointerId)};
+  ruler.onpointermove=e=>{if(start)change(start.ticks+Math.round((start.x-e.clientX)/8))};
+  ruler.onlostpointercapture=()=>{start=null};
+  ruler.onkeydown=e=>{const keys={ArrowRight:1,ArrowUp:1,ArrowLeft:-1,ArrowDown:-1,PageUp:10,PageDown:-10,Home:min-ticks,End:max-ticks};if(e.key in keys){e.preventDefault();change(ticks+keys[e.key])}};
+  const [minus,plus]=panel.querySelectorAll('.nudge');minus.onclick=()=>change(ticks-1);plus.onclick=()=>change(ticks+1);paint();
+ });
+}
+function trend(fields){
+ fields.innerHTML='<figure class="trend"><figcaption>Building a routine</figcaption><svg viewBox="0 0 320 130" role="img" aria-label="Illustration of a routine becoming more consistent over six months"><path d="M8 40H312 M8 80H312 M8 120H312" fill="none" stroke="#dedbe7" stroke-dasharray="3 4"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16 L312 120 H8Z" fill="#ebe8ff"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16" fill="none" stroke="#6556ef" stroke-width="3"/><circle cx="312" cy="16" r="5" fill="#6556ef"/></svg><div class="months"><span>Month 1</span><span>Month 6</span></div><p><strong>✦ Coachline</strong><br>Snap a meal, scan gym equipment, or text your AI coach about your next workout.</p></figure>';
+}
 const steps=[
  ['What should we call you?','',[]],
  ['Choose your sex','Choose what you’d like to share with your coach.',[['Male','♂'],['Female','♀'],['Other','◇'],['Prefer not to say','—']]],
- ['How many workouts do you do per week?','Think about a typical week. Your coach will use this to plan with you.',[['0–2','•','Every now and then'],['3–5','∴','A few times a week'],['6+','⠿','Most days']]]
+ ['How many workouts do you do per week?','Think about a typical week. Your coach will use this to plan with you.',[['0–2','•','Every now and then'],['3–5','∴','A few times a week'],['6+','⠿','Most days']]],
+ ['When were you born?','Choose your month, day, and year.',[]],
+ ['Where did you hear about Coachline?','',sources],
+ ['Have you tried calorie tracking apps before?','',yesNo],
+ ['Have you tried fitness apps before?','Think about workout plans, exercise demos, or coaching apps.',yesNo],
+ ['Designed to help you stay on track','',[]],
+ ['What is your height?','Your coach uses this as part of your starting profile.',[]],
+ ['What is your current weight?','Slide the ruler to choose your starting weight.',[]]
 ];
-const answers=['','',''];let index=0,busy=false;
+const answers=['','','','','','','','continue','height','weight'];let index=0,busy=false,blocked=false;
 function fadeInStep() {
  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
- for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .return:not([hidden])')) {
+ for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .fields > .wheels, .fields > .units, .fields > .trend, .fields > .weight, .return:not([hidden])')) {
    element.getAnimations?.().forEach(animation => animation.cancel());
    element.animate?.([{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
  }
@@ -34,27 +156,59 @@ function fadeInStep() {
 }
 function render(){
  const [title,hint,options]=steps[index];
- $('h1').textContent=title;$('#hint').textContent=hint;$('#step').textContent=(index+1)+' of 3';$('.fill').style.width=(index+1)/3*100+'%';$('.back').disabled=index===0;
+ $('h1').textContent=title;$('#hint').textContent=hint;$('#step').textContent=(index+1)+' of '+steps.length;$('.fill').style.width=(index+1)/steps.length*100+'%';$('.back').disabled=index===0;
  const fields=$('.fields');fields.replaceChildren();fields.classList.toggle('name',index===0);
- if(index===0){fields.innerHTML='<label>Your name<input name="name" autocomplete="given-name" maxlength="60" placeholder="First name or nickname"></label>';const input=fields.querySelector('input');input.value=answers[0];input.oninput=()=>{answers[0]=input.value;$('.next').disabled=!input.value.trim()};}
+ if(index===0){fields.innerHTML='<label>Your name<input name="name" autocomplete="given-name" maxlength="60" placeholder="First name or nickname"></label>';const input=fields.querySelector('input');input.value=answers[0];input.oninput=()=>{answers[0]=input.value;$('form .next').disabled=!input.value.trim()};}
+ fields.classList.toggle('referrals',index===4);
+ if(index===3)birthday(fields);
+ if(index===7)trend(fields);
+ if(index===8)heightPicker(fields);
+ if(index===9)weightPicker(fields);
  for(const [value,icon,detail] of options){
  const label=document.createElement('label');label.className='option';
  label.innerHTML='<span aria-hidden="true" class="symbol">'+icon+'</span><span><strong>'+value+'</strong>'+(detail?'<small>'+detail+'</small>':'')+'</span><input type="radio" name="choice">';
- const radio=label.querySelector('input');radio.checked=answers[index]===value;radio.onchange=()=>{answers[index]=value;$('.next').disabled=false};fields.append(label);
+ const radio=label.querySelector('input');radio.checked=answers[index]===value;radio.onchange=()=>{answers[index]=value;$('form .next').disabled=false};fields.append(label);
  }
- $('.next').textContent=index===2?'Finish setup':'Continue';$('.next').disabled=!answers[index].trim();$('#status').textContent=!ticket?'Preview · Text your coach for your personal setup link.':'';
+ $('form .next').textContent=index===steps.length-1?'Finish setup':'Continue';$('form .next').disabled=!answers[index].trim()||(index===3&&answers[3]>localToday());$('#status').textContent=!ticket?'Preview · Text your coach for your personal setup link.':'';
  fadeInStep();
 }
+const endpoint='https://kvpngwwaemdjwchslcov.supabase.co/rest/v1/rpc/';
+const headers={'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'};
+const ageDialog=document.querySelector('dialog');
+ageDialog.querySelector('button').onclick=()=>ageDialog.close();
+ageDialog.onclose=()=>{if(blocked){
+ $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;
+ $('h1').textContent='Come back when you’re 13.';$('#hint').textContent='You must be at least 13 to use Coachline.';$('#status').textContent='';$('h1').focus();
+}};
 $('.back').onclick=()=>{if(index && !busy){index--;render();$('h1').focus()}};
 $('form').onsubmit=async event=>{
- event.preventDefault();if(busy||!answers[index].trim())return;
- if(index<2){index++;render();$('h1').focus();return}
+ event.preventDefault();if(blocked||busy||!answers[index].trim())return;
+ if(index===3){
+  if(answers[3]>localToday())return;
+  let allowed=oldEnough(answers[3],localToday());
+  if(ticket){
+   busy=true;$('.fields').inert=true;$('form .next').disabled=$('.back').disabled=true;
+   try{
+    const r=await fetch(endpoint+'check_coach_intake_age',{method:'POST',headers,body:JSON.stringify({ticket,dob:answers[3]})});
+    if(!r.ok)throw Error();
+    const result=await r.json();
+    if(result!=='eligible'&&result!=='underage')throw Error();
+    allowed=allowed&&result==='eligible';
+   }catch{$('#status').textContent='Couldn’t check your birthday. Try again, or text your coach for a fresh link.';return}
+   finally{busy=false;$('.fields').inert=false;$('form .next').disabled=$('.back').disabled=false}
+  }
+  if(!allowed){
+   blocked=true;document.querySelector('dialog').showModal();
+   return;
+  }
+ }
+ if(index<steps.length-1){index++;render();$('h1').focus();return}
  if(!ticket){$('#status').textContent='To save your profile, open the personal link from your coaching conversation.';return}
- busy=true;$('.next').disabled=$('.back').disabled=true;$('#status').textContent='Saving your profile…';
+ busy=true;$('form .next').disabled=$('.back').disabled=true;$('#status').textContent='Saving your profile…';
  try{
- const response=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/rest/v1/rpc/finish_coach_intake',{method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2]})});
+ const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(3)})});
  if(!response.ok||await response.json()!==true)throw Error();
- $('nav').hidden=$('.fields').hidden=$('.next').hidden=true;$('h1').textContent='You’re ready to train.';$('#hint').textContent='Head back to Messages and tell your coach what you want to work on.';$('#status').textContent='';$('.return').hidden=false;fadeInStep();$('h1').focus();
- }catch{$('#status').textContent='Couldn’t save. Try again, or text your coach for a fresh link.';$('.next').disabled=$('.back').disabled=false}finally{busy=false}
+ $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;$('h1').textContent='You’re ready to train.';$('#hint').textContent='Head back to Messages and tell your coach what you want to work on.';$('#status').textContent='';$('.return').hidden=false;fadeInStep();$('h1').focus();
+ }catch{$('#status').textContent='Couldn’t save. Try again, or text your coach for a fresh link.';$('form .next').disabled=$('.back').disabled=false}finally{busy=false}
 };render();
 </script></html>
