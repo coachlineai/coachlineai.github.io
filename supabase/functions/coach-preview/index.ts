@@ -21,9 +21,9 @@ Deno.serve(async req=>{
     const id=env('SENDBLUE_API_KEY_ID'), secret=env('SENDBLUE_API_SECRET_KEY'), number=env('SENDBLUE_TEST_NUMBER');
     if(!id||!secret||!number) return reply({error:'Sandbox credentials are missing.'});
     try {
-      const res=await fetch('https://api.sendblue.co/api/evaluate-service?'+new URLSearchParams({number}),{headers:{'sb-api-key-id':id,'sb-api-secret-key':secret},signal:AbortSignal.timeout(8000)});
+      const res=await fetch('https://api.sendblue.com/api/evaluate-service?'+new URLSearchParams({number}),{headers:{'sb-api-key-id':id,'sb-api-secret-key':secret},signal:AbortSignal.timeout(8000)});
       const result=await res.json();
-      return res.ok && result.service ? reply({service:String(result.service)}) : reply({error:'Sendblue could not verify the sandbox line.'});
+      return res.ok && result.service ? reply({service:String(result.service)}) : reply({error:'Sendblue lookup returned HTTP '+res.status+'.'});
     } catch{return reply({error:'Sendblue is unavailable.'});}
   }
   const message=body?.message?.trim?.();
