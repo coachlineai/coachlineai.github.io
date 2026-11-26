@@ -14,7 +14,9 @@ function element(tag,text,className){
   return el;
 }
 export async function updateCoachingCounts(){
-  const {data,error}=await db.rpc('creator_coaching_counts');
+  const [{data,error},leads]=await Promise.all([db.rpc('creator_coaching_counts'),db.rpc('creator_page_leads')]);
+  const leadCount=document.querySelector('#page-leads');
+  if(leadCount&&!leads.error){leadCount.textContent=leads.data+' pending page '+(leads.data===1?'lead':'leads');leadCount.hidden=false;}
   if(error||!data)return;
   const badge=document.querySelector('#clients-unread');
   badge.textContent=data.unread;

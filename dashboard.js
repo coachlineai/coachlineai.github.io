@@ -1,4 +1,4 @@
-import {startCoachingCounts} from './coaching-feed.js';
+import {startCoachingCounts} from './coaching-feed.js?v=pageowner1';
 import {initSettings, showSettingsTab} from './settings.js?v=delete1';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
@@ -13,8 +13,8 @@ function renderMessageCard(rawPhone) {
   const card = $('#phone');
   const number = phoneNumber(rawPhone);
   if (!number) {
-    const setup = node('a', 'Add your coaching number');
-    setup.href = 'page-editor.html';
+    const setup = node('a', 'View AI coach setup');
+    setup.href = '#coach';
     card.replaceChildren(setup);
     return;
   }
@@ -68,4 +68,5 @@ try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, re
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
 page = ownedPage;
-if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);startCoachingCounts();const updateIncome=initIncome();initBilling(user,updateIncome);initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
+const {data:aiLine}=await db.rpc('editor_ai_line',{page:page.id});
+if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(aiLine);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);startCoachingCounts();const updateIncome=initIncome();initBilling(user,updateIncome);initCoach(user.id,aiLine);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}

@@ -1,5 +1,5 @@
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
-import {renderProfile,platforms,validatePage,phoneNumber} from './profile-render.js?v=avatar1';
+import {renderProfile,platforms,validatePage,phoneNumber} from './profile-render.js?v=pageowner1';
 const $=s=>document.querySelector(s);let page,draft,dirty=false,busy=false,uploading=0,revision=0;
 const fields=['name','handle','bio','position'];
 const status=text=>$('#status').textContent=text;
@@ -56,9 +56,9 @@ for(const [id,visual] of [['use-avatar','avatar'],['use-photo','photo']]){
 $('#photo').onchange=e=>upload(e.target.files[0],path=>{draft.imagePath=path;delete draft.image;draft.visual='photo';visualControls();});
 $('#add-social').onclick=()=>{if(draft.socials.length>=12)return;draft.socials.push({platform:'Instagram',label:'Instagram',url:''});socialRows();changed();};
 $('#save').onclick=async()=>{busy=true;controls();try{await save();$('#error').textContent='';}catch(e){fail(e);}finally{busy=false;controls();}};
-$('#publish').onclick=()=>{try{collect();validatePage(draft);$('#publish-dialog').showModal();}catch(e){fail(e);}};
+$('#publish').onclick=()=>{try{collect();validatePage(draft,{allowUnassigned:true});$('#publish-dialog').showModal();}catch(e){fail(e);}};
 $('#cancel-publish').onclick=()=>$('#publish-dialog').close();
-$('#confirm-publish').onclick=async()=>{$('#publish-dialog').close();busy=true;controls();try{collect();validatePage(draft);await save();status('Publishing…');const content=await publicContent();const {error}=await db.rpc('publish_page',{p_id:page.id,p_version:page.version,p_content:content});if(error)throw error;status('Published · Your page is live');$('#error').textContent='';}catch(e){fail(e);status('Publish failed · Review the error before retrying');}finally{busy=false;controls();}};
+$('#confirm-publish').onclick=async()=>{$('#publish-dialog').close();busy=true;controls();try{collect();validatePage(draft,{allowUnassigned:true});await save();status('Publishing…');const content=await publicContent();const {error}=await db.rpc('publish_page',{p_id:page.id,p_version:page.version,p_content:content});if(error)throw error;status('Published · Your page is live');$('#error').textContent='';}catch(e){fail(e);status('Publish failed · Review the error before retrying');}finally{busy=false;controls();}};
 for(const mode of ['desktop','mobile'])$('#'+mode).onclick=()=>{$('#preview').classList.toggle('mobile',mode==='mobile');$('#desktop').setAttribute('aria-pressed',mode==='desktop');$('#mobile').setAttribute('aria-pressed',mode==='mobile');};
 window.addEventListener('beforeunload',e=>{if(dirty||uploading){e.preventDefault();e.returnValue='';}});
-try{const user=await requireUser();if(user){protectRestoredPage();page=await accountPage();draft={name:'',handle:'',bio:'',position:0,buttonLabel:'Message my AI coach',phone:'',socials:[],...page.draft};for(const f of fields)$('#'+f).value=draft[f];$('#button-label').value=draft.buttonLabel;$('#phone').value=draft.phone;$('#view-live').href=publicLink(page);visualControls();socialRows();await previewImages();status('Draft loaded');controls();}}catch(e){fail(e);status('Unable to load page');}
+try{const user=await requireUser();if(user){protectRestoredPage();page=await accountPage();draft={name:'',handle:'',bio:'',position:0,buttonLabel:'Message my AI coach',phone:'',socials:[],...page.draft};const line=await db.rpc('editor_ai_line',{page:page.id});if(line.error)throw line.error;draft.phone=line.data||'';for(const f of fields)$('#'+f).value=draft[f];$('#button-label').value=draft.buttonLabel;$('#phone').value=draft.phone;$('#view-live').href=publicLink(page);visualControls();socialRows();await previewImages();status('Draft loaded');controls();}}catch(e){fail(e);status('Unable to load page');}
