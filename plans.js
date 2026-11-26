@@ -52,7 +52,7 @@ function draw(){
       regular.setAttribute('aria-label','Regular price '+currency(reference));
       const current=document.createElement('span');current.textContent=price.textContent;
       const discount=document.createElement('small');discount.className='discount';discount.textContent=launch?'Save '+currency(reference-amount):'91.67% off';
-      price.replaceChildren(regular,current,discount);
+      price.replaceChildren(regular,' ',current,' ',discount);
     }
     const radio=card.querySelector('input');radio.value=id;radio.checked=id===selected;
     radio.onchange=()=>{selected=id;showTerms();};
