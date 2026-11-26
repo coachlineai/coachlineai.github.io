@@ -24,6 +24,8 @@ h1 em,.estimate em{color:#6452c7;font-style:normal}.confetti{position:fixed;inse
 .pace{text-align:center}.pace output{display:block;font-size:clamp(32px,6vw,44px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.04em;margin:8px 0 24px}
 .animals{display:flex;justify-content:space-between}.animals span{min-width:56px;font-size:28px;filter:grayscale(1);opacity:.65}.animals .on{filter:none;opacity:1}.animals small{display:block;font-size:14px}.on small{color:#5645bd;font-weight:650}.pace input{width:100%;height:44px;margin:6px 0 12px;accent-color:#6556ef;cursor:pointer}
 .estimate,.features{background:#f7f6fa;border-radius:18px;padding:20px;text-align:left}.estimate strong,.estimate small{display:block}.estimate em{margin-left:4px}.estimate p,.features p{margin:5px 0 10px}.features{margin:0;list-style:none}.features li{display:flex;gap:14px;align-items:flex-start;padding:16px 0}.features li+li{border-top:1px solid #e3e0ed}.features b{border-radius:12px;background:#e9e6ff;color:#5543be;width:38px;height:38px;display:grid;place-items:center;flex:none}.features p{margin-bottom:0}
+.preference-list{display:grid;gap:8px}.preference-list .option{margin:0;min-height:46px;padding:8px 14px}.preference-list input{flex-shrink:0}.allergy-note{display:grid;gap:6px;margin-top:12px}.allergy-note input{font:inherit;padding:12px;border:1px solid #b8b5c0;border-radius:12px}.plan-preview{margin:0;background:#f7f6fb;border-radius:22px;padding:24px}.plan-preview figcaption{font-weight:700}.plan-preview svg{display:block;width:100%;margin:24px 0 8px}.plan-labels{display:flex;justify-content:space-between;gap:12px;font-size:.85rem}.plan-preview p{margin:20px 0 0}.plan-preview figcaption,.plan-labels{color:#302840}
+@media(min-width:440px){.preference-list{grid-template-columns:1fr 1fr}}
 </style>
 <main><header><b aria-hidden="true">✦</b> Coachline</header><nav aria-label="Onboarding progress"><button class="back" type="button" aria-label="Previous step">←</button><div class="track"><div class="fill"></div></div><small id="step"></small></nav><form><h1 tabindex="-1"></h1><p id="hint"></p><div class="fields"></div><footer><span role="status" id="status"></span><button class="next">Continue</button><a class="return" hidden href="sms:+16177106179">Return to Messages</a></footer></form></main>
 <dialog aria-labelledby="age-title" aria-describedby="age-description"><h2 id="age-title">Coachline is for ages 13 and up</h2><p id="age-description">You can start coaching once you turn 13.</p><button class="next" type="button" autofocus>OK</button></dialog>
@@ -157,7 +159,7 @@ function availableGoals(){
 }
 function route(){
  const omitChangeSteps=Boolean(answers[3]&&clientAge()<18)||Boolean(answers[11]&&!isChangeGoal());
- return steps.map((_,i)=>i).filter(i=>!omitChangeSteps||(i!==12&&i!==14));
+ return [0,1,3,2,17,18,4,5,19,6,7,8,9,10,11,12,13,14,15,16,20,21].filter(i=>!omitChangeSteps||(i!==12&&i!==14));
 }
 function refreshProgress(){
  const path=route(),number=path.indexOf(index)+1;
@@ -249,6 +251,68 @@ function coachFeatures(fields){
  }
 }
 
+const workoutStyles=['Free weights','Bodyweight (no weights)','Running','Gym machines','Walking','Help me choose'];
+const allergyChoices=['No known food allergies','Milk','Egg','Fish','Crustacean shellfish','Tree nuts','Peanuts','Wheat','Soy','Sesame','Other food allergy','I’m not sure'];
+const motivations=['Eat and live healthier','Boost my energy and mood','Stay motivated and consistent','Feel better about my body'];
+const durations=['15 minutes or less','20–30 minutes','30–45 minutes','45–60 minutes','An hour or more','It varies'];
+const selections={workouts:new Set(),allergies:new Set()};
+let otherAllergy='';
+function preferenceList(fields,kind){
+ const allergies=kind==='allergies';
+ const selected=selections[kind];
+ const choices=allergies?allergyChoices:workoutStyles;
+ const exclusive=allergies?[choices[0],choices.at(-1)]:[choices.at(-1)];
+ const list=document.createElement('div');list.className='preference-list';fields.append(list);
+ const inputs=[];
+ const other=document.createElement('label');other.className='allergy-note';
+ other.textContent='Which other food should your coach avoid?';
+ const note=document.createElement('input');note.type='text';note.maxLength=160;note.value=otherAllergy;other.append(note);
+ function sync(){
+  inputs.forEach(input=>input.checked=selected.has(input.value));
+  other.hidden=!allergies||!selected.has('Other food allergy');
+  answers[index]=selected.size&&(other.hidden||note.value.trim())?'selected':'';
+  $('form .next').disabled=!answers[index];
+ }
+ for(const value of choices){
+  const label=document.createElement('label');label.className='option';
+  const text=document.createElement('strong');text.textContent=value;
+  const input=document.createElement('input');input.type='checkbox';input.value=value;
+  input.onchange=()=>{
+   if(input.checked){
+    if(exclusive.includes(value))selected.clear();else exclusive.forEach(v=>selected.delete(v));
+    selected.add(value);
+   }else selected.delete(value);
+   sync();
+  };
+  inputs.push(input);label.append(text,input);list.append(label);
+ }
+ if(allergies){fields.append(other);note.oninput=()=>{otherAllergy=note.value;sync()}}
+ sync();
+}
+function progressPreview(fields){
+ const changing=isChangeGoal(),maintaining=answers[11]==='Maintain';
+ $('h1').textContent=answers[0].trim()+', here’s what you’re working toward.';
+ $('#hint').textContent='Your focus · '+answers[20];
+ const figure=document.createElement('figure');figure.className='plan-preview';
+ const caption=document.createElement('figcaption');
+ caption.textContent=changing?'Your weight goal':maintaining?'Your maintenance goal':'Your training routine';
+ const chart=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ chart.setAttribute('viewBox','0 0 320 108');chart.setAttribute('aria-hidden','true');
+ const down=answers[11]==='Lose weight';
+ const start=maintaining?56:down?21:86,end=maintaining?56:down?86:21;
+ const line='M12 '+start+' C115 '+start+' 211 '+end+' 308 '+end;
+ chart.innerHTML='<path d="'+line+' L308 103 H12 Z" fill="#eeeafd"/><path d="'+line+'" fill="none" stroke="#6954d9" stroke-width="3"/><circle cx="12" cy="'+start+'" r="5" fill="white" stroke="#6954d9" stroke-width="3"/><circle cx="308" cy="'+end+'" r="7" fill="#6954d9"/>';
+ const labels=document.createElement('div');labels.className='plan-labels';
+ const weight=kg=>(kg/(units.weight==='lbs'?LB_KG:1)).toFixed(1)+' '+units.weight;
+ const begin=document.createElement('span'),finish=document.createElement('span');
+ begin.textContent=changing||maintaining?'Today · '+weight(weightKg):'First session';
+ finish.textContent=changing?'Goal · '+weight(desiredKg):maintaining?'Maintain · '+weight(weightKg):'Build a routine';
+ labels.append(begin,finish);
+ const detail=document.createElement('p');
+ detail.textContent=changing?'At your chosen pace, that’s about '+calendarEstimate(Math.abs(desiredKg-weightKg)/(LB_KG*paceLb))+'. Your progress may look different week to week.':maintaining?'Your check-ins can focus on energy, strength, and the routine you want to keep.':'Your check-ins can focus on showing up and how each session feels.';
+ figure.append(caption,chart,labels,detail);fields.append(figure);
+}
+
 const steps=[
  ['What should we call you?','',[]],
  ['Choose your sex','Choose what you’d like to share with your coach.',[['Male','♂'],['Female','♀'],['Other','◇'],['Prefer not to say','—']]],
@@ -266,22 +330,27 @@ const steps=[
  ['Your goal','',[]],
  ['How fast do you want to reach your goal?','Compare paces. These rough estimates can change as your routine changes.',[]],
  ['A simpler way to stay on track','Here’s what you can do in a conversation with Coachline.',[]],
- ['What’s stopping you from reaching your goals?','Choose the biggest obstacle for you right now.',barriers]
+ ['What’s stopping you from reaching your goals?','Choose the biggest obstacle for you right now.',barriers],
+ ['Which workouts would you like in your plan?','Choose all that fit.',[]],
+ ['How much time can you usually set aside for a workout?','Choose what fits a typical day.',durations.map(v=>[v,'◷'])],
+ ['Which food allergies should your coach plan around?','Select all that apply. You can add a food that isn’t listed.',[]],
+ ['What would you most like to accomplish?','Choose what matters most to you day to day.',motivations.map((v,i)=>[v,['♧','☀','↗','♡'][i]] )],
+ ['Your plan preview','',[]]
 ];
-const answers=['','','','','','','','continue','height','weight','','','','confirm','pace','features',''];let index=0,busy=false,blocked=false;
+const answers=['','','','','','','','continue','height','weight','','','','confirm','pace','features','','','','','','preview'];let index=0,busy=false,blocked=false;
 function fadeInStep() {
  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
  for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .fields > .wheels, .fields > .units, .fields > .trend, .fields > .weight, .fields > .pace, .fields > .features, .return:not([hidden])')) {
    element.getAnimations?.().forEach(animation => animation.cancel());
    element.animate?.([{opacity: 0}, {opacity: 1}], {duration: 220, easing: 'ease-out'});
  }
- document.querySelectorAll('.fields:not([hidden]) > .option').forEach((option, index) => {
+ document.querySelectorAll('.fields:not([hidden])  .option').forEach((option, index) => {
    option.animate?.([
      {opacity: 0, transform: 'translateY(14px)'},
      {opacity: 1, transform: 'translateY(0)'}
    ], {
      duration: 340,
-     delay: 60 + index * 100,
+     delay: 60 + Math.min(index * 80, 380),
      easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
      fill: 'backwards'
    });
@@ -303,6 +372,9 @@ function render(){
  if(index===13)confirmation(fields);
  if(index===14)pacePicker(fields);
  if(index===15)coachFeatures(fields);
+ if(index===17)preferenceList(fields,'workouts');
+ if(index===19)preferenceList(fields,'allergies');
+ if(index===21)progressPreview(fields);
  for(const [value,icon,detail] of options){
  const label=document.createElement('label');label.className='option';
  label.innerHTML='<span aria-hidden="true" class="symbol">'+icon+'</span><span><strong>'+value+'</strong>'+(detail?'<small>'+detail+'</small>':'')+'</span><input type="radio" name="choice">';
@@ -351,7 +423,7 @@ $('form').onsubmit=async event=>{
  if(!ticket){$('#status').textContent='To save your profile, open the personal link from your coaching conversation.';return}
  busy=true;$('form .next').disabled=$('.back').disabled=true;$('#status').textContent='Saving your profile…';
  try{
- const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(5),has_trainer:answers[10]==='Yes',goal:answers[11],target_kg:isChangeGoal()?+desiredKg.toFixed(5):null,weekly_lb:isChangeGoal()?paceLb:null,barrier:answers[16]})});
+ const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(5),has_trainer:answers[10]==='Yes',goal:answers[11],target_kg:isChangeGoal()?+desiredKg.toFixed(5):null,weekly_lb:isChangeGoal()?paceLb:null,barrier:answers[16],styles:[...selections.workouts],session_length:answers[18],allergies:[...selections.allergies],other_food:selections.allergies.has('Other food allergy')?otherAllergy.trim():null,motivation:answers[20]})});
  if(!response.ok||await response.json()!==true)throw Error();
  $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;$('h1').textContent='You’re ready to train.';$('#hint').textContent='Head back to Messages and tell your coach what you want to work on.';$('#status').textContent='';$('.return').hidden=false;fadeInStep();$('h1').focus();
  }catch{$('#status').textContent='Couldn’t save. Try again, or text your coach for a fresh link.';$('form .next').disabled=$('.back').disabled=false}finally{busy=false}
