@@ -7,6 +7,7 @@ import vm from 'node:vm';
 const source = readFileSync(new URL('../supabase/functions/creator-billing/index.ts',import.meta.url),'utf8').replace(/^import .*;$/m,'');
 function fixture({demo=false, account=null, ready=false, intake=null, pricing=null,redeemed=null}={}) {
   const calls=[];
+  const orders=[];
   let handler;
   const db={
     auth:{admin:{getUserById:async()=>({data:{user:{id:'creator'}}})},getUser:async()=>({data:{user:{id:'creator'}}})},
@@ -17,7 +18,7 @@ function fixture({demo=false, account=null, ready=false, intake=null, pricing=nu
           const rows={coach_client_intake:intake,coach_pricing:pricing,profiles:{id:'creator'},creator_payout_exclusions:demo?{}:null,creator_stripe_accounts:account?{account_id:account}:null};
           return {data:rows[table]};
         },
-        async upsert(row){account=row.account_id;return {}}
+        async upsert(row){if(table==='coaching_orders')orders.push(row);else account=row.account_id;return {}}
       };
     }
   };
@@ -29,11 +30,11 @@ function fixture({demo=false, account=null, ready=false, intake=null, pricing=nu
       return Response.json({max_redemptions:5,amount_off:2001,currency:'usd',times_redeemed:redeemed,valid:redeemed<5});
     }
     if(path==='coupons'){redeemed=0;return Response.json({id:req.body.get('id')});}
-    const data = path==='accounts'?{id:'acct_A'}:path==='accounts/acct_A'?{charges_enabled:ready,payouts_enabled:ready,capabilities:{transfers:'active'},settings:{payouts:{schedule:{interval:'monthly',monthly_anchor:15}}}}:{url:'https://checkout.stripe.com/c/pay/mock'};
+    const data = path==='accounts'?{id:'acct_A'}:path==='accounts/acct_A'?{charges_enabled:ready,payouts_enabled:ready,capabilities:{transfers:'active'},settings:{payouts:{schedule:{interval:'monthly',monthly_anchor:15}}}}:{id:'cs_live_mock',url:'https://checkout.stripe.com/c/pay/mock'};
     return Response.json(data);
   }
   vm.runInNewContext(stripTypeScriptTypes(source),{URLSearchParams,Response,console,crypto,TextEncoder,fetch,createClient:()=>db,Deno:{env:{get:()=> 'sk_live_mock'},serve:fn=>handler=fn}});
-  return {calls,request:(action,body={})=>handler(new Request('https://example.test',{method:'POST',body:JSON.stringify({action,...body})}))};
+  return {calls,orders,request:(action,body={})=>handler(new Request('https://example.test',{method:'POST',body:JSON.stringify({action,...body})}))};
 }
 test('test creator cannot onboard or charge and Stripe receives no calls',async()=>{
   const f=fixture({demo:true});
@@ -64,7 +65,10 @@ test('all three plans route the creator share to their Stripe account',async()=>
   }
   const sessions=f.calls.filter(c=>c.path==='checkout/sessions');
   assert.equal(sessions.length,3);
+  assert.equal(f.orders.length,3);
   for(const {params} of sessions){
+    assert.match(params.success_url,/payment\.html#session=\{CHECKOUT_SESSION_ID\}/);
+    assert.equal(params['phone_number_collection[enabled]'],'true');
     const once=params.mode==='payment';
     const prefix=once?'payment_intent_data':'subscription_data';
     assert.equal(params[prefix+'[transfer_data][destination]'],'acct_A');

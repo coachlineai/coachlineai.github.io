@@ -9,7 +9,7 @@ if(ticket||offer){
   ticket=sessionStorage.getItem('coachline-checkout-resume');
   offer=sessionStorage.getItem('coachline-offer-resume');
 }
-let prices, available=false, selected='once';
+let prices, available=false, selected=preview && ['once','year','week'].includes(params.get('plan'))?params.get('plan'):'once';
 const currency=cents=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
 const titles={year:'Annual coaching',week:'Weekly coaching',once:'One-time payment'};
 function checkoutUrl(value){
@@ -71,7 +71,7 @@ function draw(){
   showTerms();
 }
 async function load(){
-  if(preview){prices={week:799,year:3199,once:9999,reference:38388};note.textContent='Preview prices. Open your personal setup link to see your coach’s offer.';}
+  if(preview){prices={week:799,year:3199,once:9999,reference:38388};available=true;pay.textContent='Preview checkout';note.textContent='Try checkout without making a payment.';}
   else if(legacy){
     const extended=params.has('once');
     const week=Number(params.get('cents'));
@@ -89,6 +89,18 @@ pay.onclick=async()=>{
   if(!available)return;
   pay.disabled=true;plans.disabled=true;note.textContent='Opening Stripe…';
   try{
+    if(preview){
+      const response=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/functions/v1/checkout-status',{
+        method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},
+        body:JSON.stringify({action:'preview',plan:selected,attempt:crypto.randomUUID()})
+      });
+      if(!response.ok)throw Error('Couldn’t open the checkout preview. Please try again.');
+      const sandbox=await response.json();
+      if(sandbox.demo===true){location.assign('./payment.html#preview='+selected);return;}
+      const url=checkoutUrl(sandbox.url);
+      if(!url)throw Error('Couldn’t open the Stripe sandbox.');
+      location.assign(url);return;
+    }
     const result=legacy?{url:params.get(selected)}:await billing('checkout',{plan:selected,expectedCents:prices[selected]});
     const url=checkoutUrl(result.url);if(!url)throw Error('Ask your coach for a new checkout link.');
     location.assign(url);

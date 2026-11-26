@@ -49,15 +49,17 @@ Deno.serve(async req => {
     const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     let creatorId: string;
     let demoEmail = false;
+    let clientPhone: string | null = null;
     if (intake) {
       if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.ticket || ''))
         return json({error:'Open your personal setup link.'},400);
-      const record = await admin.from('coach_client_intake').select('creator_id')
+      const record = await admin.from('coach_client_intake').select('creator_id,phone')
         .eq('invite',body.ticket).not('completed_at','is',null)
         .gte('issued_at',new Date(Date.now()-48*3600000).toISOString()).maybeSingle();
       if (record.error) throw record.error;
       if (!record.data) return json({error:'Text your coach for a new checkout link.'},403);
       creatorId = record.data.creator_id;
+      clientPhone = record.data.phone;
     } else if(shared){
       const ownerId=await resolveOffer(body.offer);
       if(!ownerId)return json({error:'Ask your coach for a fresh checkout link.'},403);
@@ -157,10 +159,23 @@ Deno.serve(async req => {
       const changed=()=>json({error:'The offer has changed. Review the current price before continuing.',changed:true},409);
       if(cents!==body.expectedCents)return changed();
       const launch=plan==='once' && cents===lifetimeEarly;
+      if (!Deno.env.get('STRIPE_WEBHOOK_SECRET')) {
+        const configured=await admin.rpc('coachline_webhook_key');
+        if (configured.error) throw configured.error;
+        if (!configured.data) {
+          const events=['checkout.session.completed','checkout.session.async_payment_succeeded','checkout.session.async_payment_failed','checkout.session.expired','invoice.paid','invoice.payment_failed','customer.subscription.updated','customer.subscription.deleted','charge.refunded'];
+          const fields:Record<string,string>={url:url+'/functions/v1/checkout-status',api_version:'2024-06-20',description:'Coachline coaching access'};
+          events.forEach((event,index)=>fields['enabled_events['+index+']']=event);
+          const endpoint=await stripe('webhook_endpoints',fields,{'Idempotency-Key':'coachline-checkout-webhook-v1'});
+          const saved=await admin.rpc('save_coachline_webhook_key',{signing_key:endpoint.secret});
+          if (saved.error) throw saved.error;
+        }
+      }
       if(launch)await launchCoupon(true);
       async function checkout(interval: 'week' | 'year' | 'once', cents: number) {
         const session = await stripe('checkout/sessions', {
           ...(launch?{'discounts[0][coupon]':couponId}:{}),
+          ...(shared ? {'phone_number_collection[enabled]':'true'} : {}),
           mode: interval === 'once' ? 'payment' : 'subscription',
           ...(interval === 'once' ? {
             'invoice_creation[enabled]':'true',
@@ -178,13 +193,19 @@ Deno.serve(async req => {
           'line_items[0][quantity]': '1',
           'line_items[0][price_data][currency]': 'usd',
           'line_items[0][price_data][unit_amount]': String(interval==='once'?lifetimeRegular:cents),
-          'line_items[0][price_data][product_data][name]':interval==='once'?'Coachline lifetime training':'AI coaching',
+          'line_items[0][price_data][product_data][name]':interval==='once'?'Coachline lifetime training':interval==='year'?'Coachline annual coaching':'Coachline weekly coaching',
+          'line_items[0][price_data][product_data][description]':interval==='once'?'Lifetime access to meal scans, workout guidance, and coach messaging.':'Meal scans, workout guidance, and coach messaging.',
           'metadata[creator_id]': creatorId,
           'metadata[coachline_plan]': interval,
           client_reference_id:clientRef,
-          success_url: site + '/',
+          success_url: site + '/payment.html#session={CHECKOUT_SESSION_ID}',
           cancel_url: site + '/plans.html'
-        }, {'Idempotency-Key':'coachline-intake-'+clientRef+'-'+interval+'-'+cents+'-'+Math.floor(Date.now()/86400000)});
+        }, {'Idempotency-Key':'coachline-checkout-v2-'+clientRef+'-'+interval+'-'+cents+'-'+Math.floor(Date.now()/86400000)});
+        const saved = await admin.from('coaching_orders').upsert({
+          session_id:session.id, creator_id:creatorId, plan:interval,
+          client_phone:clientPhone, amount_cents:cents
+        }, {onConflict:'session_id',ignoreDuplicates:true});
+        if (saved.error) throw saved.error;
         return session.url as string;
       }
       // Use an opaque billing reference. The private setup link stays in the client.
