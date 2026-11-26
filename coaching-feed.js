@@ -1,7 +1,7 @@
 import {db} from './supabase-client.js';
 
 const titles={
-  joined:'Onboarding', client:'Client', coach:'AI coach', meal:'Meal plan', workout:'Workout plan',
+  joined:'Onboarding', client:'Client', coach:'AI coach', meal:'Meal plan', meal_log:'Meal logged', workout:'Workout plan',
   friday:'Friday check-in', review:'Coach feedback', progress:'Progress photo', checkin_note:'Client check-in',
   workout_done:'Workout completed', burn:'Workout calories', burn_file:'Tracker screenshot',
   burn_review:'Screenshot needs clarification', attention:'Trainer review', allergies:'Food allergies'
