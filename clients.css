@@ -45,3 +45,13 @@
 .client-stats>div:last-child {grid-column:span 2}
 }
 .client-table-scroll{overflow-x:auto;margin-top:14px}.registered-clients{width:100%;border-collapse:collapse;text-align:left}.registered-clients th,.registered-clients td{padding:12px 9px;border-bottom:1px solid #eae8f0;vertical-align:top}.registered-clients thead th{color:#655e75;font-size:.83rem}.registered-clients button{white-space:nowrap}.client-file{display:block;width:100%;margin-top:12px;border:0}.client-file:is(iframe){height:65vh}.client-file:is(img){max-height:65vh;object-fit:contain}
+
+.activity-badge,.client-unread{display:inline-block;margin-inline-start:.4rem;border-radius:2rem;background:#5440bd;color:white;padding:.15rem .5rem;font-size:.75rem;font-weight:700;vertical-align:middle}
+.activity-badge[hidden]{display:none}
+.coaching-feed{display:grid;gap:1rem}
+.coaching-feed>button{justify-self:start}
+.coaching-entry{border:1px solid #e6e3ed;border-radius:12px;margin:.65rem 0;padding:.8rem}
+.coaching-entry header{position:static;display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;flex-wrap:wrap;height:auto;padding:0;background:transparent;border:0}
+.coaching-entry time,.coaching-entry small{font-size:.78rem;color:#615d70}
+.coaching-entry p{white-space:pre-line;overflow-wrap:anywhere}
+.coaching-feed button{cursor:pointer}

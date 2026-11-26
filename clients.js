@@ -1,4 +1,4 @@
-import {liveRoster,leaveRoster} from './client-roster.js';
+import {liveRoster,leaveRoster} from './client-roster.js?v=coaching2';
 import { escapeHtml as e } from './profile-render.js';
 
 const periods = ['Morning','Afternoon','Evening'];

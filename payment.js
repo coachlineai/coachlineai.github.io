@@ -49,7 +49,7 @@ async function confirmPayment(){
       order(result.plan,result.amount,result.demo);
       if(result.demo){el('sample').hidden=false;el('back').href='./plans.html#preview';demoComplete();return;}
       el('heading').textContent='Payment confirmed';
-      el('message').textContent='Your coaching plan is active. Return to your conversation to get started.';
+      el('message').textContent='Your plan is active. To get personalized plans and Friday check-ins, text COACH ON. Google Gemini processes your questionnaire and any check-in photos or workout screenshots you share. Sendblue delivers the texts. Your trainer can see them. You can text COACH OFF anytime.';
       if(/^\+[1-9]\d{7,14}$/.test(result.coachPhone)){
         el('sms').href='sms:'+result.coachPhone;el('sms').hidden=false;
       }

@@ -1,3 +1,4 @@
+import {startCoachingCounts} from './coaching-feed.js';
 import {initSettings, showSettingsTab} from './settings.js?v=delete1';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
@@ -5,7 +6,7 @@ import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supab
 import { initCoach } from './coach.js?v=phonepilot2';
 import {initBilling} from './billing.js?v=planoffer1';
 import { initIncome } from './income.js?v=payout15';
-import { showClients } from './clients.js?v=registry1';
+import { showClients } from './clients.js?v=coaching2';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
 function renderMessageCard(rawPhone) {
@@ -67,4 +68,4 @@ try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, re
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
 page = ownedPage;
-if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);const updateIncome=initIncome();initBilling(user,updateIncome);initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
+if(result.error)throw result.error;profile=result.data;$('h1').textContent='Welcome back, '+profile.full_name;renderMessageCard(page.draft.phone);$('#queue').textContent='No connected conversations yet.';initSettings(user,profile);startCoachingCounts();const updateIncome=initIncome();initBilling(user,updateIncome);initCoach(user.id,page.draft.phone);routeDashboard();document.body.classList.remove('locked');}}catch(e){$('#notice').textContent=e.message;document.body.classList.remove('locked');document.querySelectorAll('[data-open],[data-copy]').forEach(b=>b.disabled=true);}
