@@ -1,3 +1,4 @@
+import {setupCreatorVoice} from './creator-voice.js';
 import {db} from './supabase-client.js';
 import {voiceWave,startAudioEngine} from './voice-wave.js';
 import qrCode from './vendor/coach-qr.js';
@@ -163,7 +164,9 @@ export async function initCoach(owner, phone) {
   const consent = $('#voice-consent'), upload = $('#voice-file'), record = $('#record-coach');
   const player = $('#voice-audio'), voiceStatus = $('#voice-state');
   const wave=voiceWave(root,player);
+  const updateVoiceControls=setupCreatorVoice(()=>data.consent?data.audio:null);
   function refreshVoice() {
+    updateVoiceControls();
     player.pause();
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = data.audio ? URL.createObjectURL(data.audio) : null;
