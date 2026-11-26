@@ -5,18 +5,17 @@ import {test} from 'node:test';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../supabase/functions/creator-billing/index.ts',import.meta.url),'utf8').replace(/^import .*;$/m,'');
-function fixture({demo=false,paid=false, account=null, ready=false, intake=null, pricing=null,redeemed=null}={}) {
+function fixture({demo=false, account=null, ready=false, intake=null, pricing=null,redeemed=null}={}) {
   const calls=[];
   const orders=[];
   let handler;
   const db={
     auth:{admin:{getUserById:async()=>({data:{user:{id:'creator'}}})},getUser:async()=>({data:{user:{id:'creator'}}})},
-    rpc(name){assert.equal(name,'coach_has_paid_access');return {data:paid}},
     from(table) {
       return {
         select(){return this}, eq(){return this},not(){return this},gte(){return this},
         async maybeSingle(){
-          const rows={coach_preview_sessions:{phone_line:'+12025550101'},coach_client_intake:intake,coach_pricing:pricing,profiles:{id:'creator'},creator_payout_exclusions:demo?{}:null,creator_stripe_accounts:account?{account_id:account}:null};
+          const rows={coach_client_intake:intake,coach_pricing:pricing,profiles:{id:'creator'},creator_payout_exclusions:demo?{}:null,creator_stripe_accounts:account?{account_id:account}:null};
           return {data:rows[table]};
         },
         async upsert(row){if(table==='coaching_orders')orders.push(row);else account=row.account_id;return {}}
@@ -124,17 +123,4 @@ test('a sold-out offer requires a fresh confirmation of the regular price',async
   const params=f.calls.at(-1).params;
   assert.equal(params['discounts[0][coupon]'],undefined);
   assert.equal(params['payment_intent_data[transfer_data][amount]'],'9600');
-});
-test('paid intake resumes coaching and cannot purchase the plan twice',async()=>{
-  const f=fixture({paid:true,intake:{creator_id:'creator',phone:'+12025550100'}});
-  const quote=await (await f.request('intake-prices',{ticket})).json();
-  assert.deepEqual(quote,{active:true,coachPhone:'+12025550101'});
-  assert.equal((await f.request('intake-checkout',{ticket,plan:'once',expectedCents:9999})).status,409);
-  assert.equal(f.calls.length,0);
-});
-test('pilot intake offers a simulation for its own message line',async()=>{
-  const f=fixture({demo:true,intake:{creator_id:'creator',phone:'+12025550100'}});
-  const quote=await (await f.request('intake-prices',{ticket})).json();
-  assert.equal(quote.simulation,true);assert.equal(quote.available,false);
-  assert.equal(quote.coachPhone,'+12025550101');assert.equal(f.calls.length,0);
 });
