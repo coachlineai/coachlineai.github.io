@@ -8,7 +8,7 @@
 .wheels{display:flex;justify-content:center;position:relative;isolation:isolate;margin:12px 0}
 .wheels::before{content:"";position:absolute;inset:calc(50% - 22px) 0 auto;height:44px;border-radius:30px;background:#f1f0f5;z-index:-1}
 .wheel{height:220px;flex:1;min-width:0;max-width:185px;text-align:center;overflow:auto;overscroll-behavior:contain;scroll-snap-type:y mandatory;scrollbar-width:none;padding:88px 0;mask-image:linear-gradient(transparent,#000 35% 65%,transparent)}
-.wheel::-webkit-scrollbar{display:none}.wheel div{height:44px;line-height:44px;scroll-snap-align:center;font-size:19px;color:#625e6b;cursor:pointer}.wheel div.active{color:#211e29;font-weight:650}
+.wheel{cursor:grab;user-select:none;-webkit-user-select:none}.wheel.dragging{cursor:grabbing;scroll-snap-type:none}.wheel::-webkit-scrollbar{display:none}.wheel div{height:44px;line-height:44px;scroll-snap-align:center;font-size:19px;color:#625e6b;cursor:inherit}.wheel div.active{color:#211e29;font-weight:650}
 .units{display:flex;margin:0 auto 32px;padding:3px;background:#efedf3;border-radius:100px;width:min(210px,100%)}
 .units button{border:0;border-radius:inherit;background:transparent;flex:1;padding:8px}.units [aria-pressed=true]{background:white;box-shadow:0 1px 4px #201e2914}
 .weight{text-align:center}.weight small{display:block}.weight output{display:block;font-size:clamp(34px,7vw,46px);font-weight:680;letter-spacing:-.04em;font-variant-numeric:tabular-nums}.weight output span{display:inline-block}
@@ -23,7 +23,13 @@ form.celebrating{justify-content:center;text-align:center}form.celebrating h1{ma
 h1 em,.estimate em{color:#6452c7;font-style:normal}.confetti{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:3}.confetti i{position:absolute;top:0;width:7px;height:12px;border-radius:2px}
 .pace{text-align:center}.pace output{display:block;font-size:clamp(32px,6vw,44px);font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.04em;margin:8px 0 24px}
 .animals{display:flex;justify-content:space-between}.animals span{min-width:56px;font-size:28px;filter:grayscale(1);opacity:.65}.animals .on{filter:none;opacity:1}.animals small{display:block;font-size:14px}.on small{color:#5645bd;font-weight:650}.pace input{width:100%;height:44px;margin:6px 0 12px;accent-color:#6556ef;cursor:pointer}
-.estimate,.features{background:#f7f6fa;border-radius:18px;padding:20px;text-align:left}.estimate strong,.estimate small{display:block}.estimate em{margin-left:4px}.estimate p,.features p{margin:5px 0 10px}.features{margin:0;list-style:none}.features li{display:flex;gap:14px;align-items:flex-start;padding:16px 0}.features li+li{border-top:1px solid #e3e0ed}.features b{border-radius:12px;background:#e9e6ff;color:#5543be;width:38px;height:38px;display:grid;place-items:center;flex:none}.features p{margin-bottom:0}
+.estimate{background:#f7f6fa;border-radius:18px;padding:20px;text-align:left}.estimate strong,.estimate small{display:block}.estimate em{margin-left:4px}.estimate p{margin:5px 0 10px}
+.referrals .symbol img{display:block;border-radius:5px}
+.features{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.feature{position:relative}.feature button{display:grid;width:100%;height:100%;gap:10px;padding:0 0 12px;border-radius:16px;border:1px solid #e3dfee;background:#f8f6fc;color:inherit;overflow:hidden;text-align:left}.feature strong{padding:0 10px;font-size:.92rem;line-height:1.25}.feature img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.feature .bubble{position:absolute;z-index:2;top:calc(100% + 9px);left:50%;transform:translateX(-50%);width:min(205px,70vw);margin:0;padding:11px 14px;border-radius:12px;color:white;background:#30283e;box-shadow:0 5px 18px #2412332b;font-size:.85rem;line-height:1.4}.feature:first-child .bubble{left:0;transform:none}.feature:last-child .bubble{left:auto;right:0;transform:none}.feature .bubble::before{content:"";position:absolute;bottom:100%;left:48%;border:6px solid transparent;border-bottom-color:#30283e}.feature:first-child .bubble::before{left:24%}.feature:last-child .bubble::before{left:74%}
+@media(max-width:470px){.features{gap:8px}.feature strong{font-size:.8rem;padding:0 8px}.feature button{border-radius:12px}.fields:has(.features){padding-bottom:96px}}
+
 .preference-list{display:grid;gap:8px}.preference-list .option{margin:0;min-height:46px;padding:8px 14px}.preference-list input{flex-shrink:0}.allergy-note{display:grid;gap:6px;margin-top:12px}.allergy-note input{font:inherit;padding:12px;border:1px solid #b8b5c0;border-radius:12px}.plan-preview{margin:0;background:#f7f6fb;border-radius:22px;padding:24px}.plan-preview figcaption{font-weight:700}.plan-preview svg{display:block;width:100%;margin:24px 0 8px}.plan-labels{display:flex;justify-content:space-between;gap:12px;font-size:.85rem}.plan-preview p{margin:20px 0 0}.plan-preview figcaption,.plan-labels{color:#302840}
 @media(min-width:440px){.preference-list{grid-template-columns:1fr 1fr}}
 </style>
@@ -33,7 +39,7 @@ h1 em,.estimate em{color:#6452c7;font-style:normal}.confetti{position:fixed;inse
 import {prepareSummary,renderSummary} from './summary.js';
 const $=s=>document.querySelector(s);
 const ticket=location.hash.slice(1);
-const sources=[['TikTok','♪'],['X','𝕏'],['Google','G'],['YouTube','▶'],['Instagram','◎'],['Friend or family','♡'],['Other','…']];
+const sources=['TikTok','X','Google','YouTube','Instagram'].map(name=>[name,'<img width="25" height="25" src="../assets/referrals/'+name.toLowerCase()+'.svg" alt="">']).concat([['Friend or family','❤️'],['Other','💬']]);
 const yesNo=[['Yes','✓'],['No','−']];
 const dob={year:0,month:0,day:0};
 const units={height:'ft, in',weight:'lbs'};
@@ -56,6 +62,28 @@ function wheel(label,items,selected,onChange){
  }
  items.forEach((item,i)=>{const row=document.createElement('div');row.textContent=item;row.setAttribute('aria-hidden','true');row.onclick=()=>move(i);el.append(row)});
  function move(i){const next=clamp(i,0,items.length-1);el.scrollTop=next*44;set(next,true)}
+ // Native touch scrolling stays inside each column. Capture a mouse drag on
+ // its original wheel so crossing into the next column cannot change it.
+ let drag=null;
+ el.onpointerdown=e=>{
+  if(e.pointerType==='touch'||e.button!==0||drag)return;
+  e.preventDefault();el.focus({preventScroll:true});
+  drag={id:e.pointerId,y:e.clientY,top:el.scrollTop,row:Array.prototype.indexOf.call(el.children,e.target),moved:false};
+  el.classList.add('dragging');el.setPointerCapture(e.pointerId);
+ };
+ el.onpointermove=e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  const distance=drag.y-e.clientY;
+  if(Math.abs(distance)>3)drag.moved=true;
+  if(drag.moved)el.scrollTop=drag.top+distance;
+ };
+ function endDrag(e){
+  if(!drag||drag.id!==e.pointerId)return;
+  const row=e.type==='pointerup'&&!drag.moved&&drag.row>=0?drag.row:Math.round(el.scrollTop/44);
+  drag=null;el.classList.remove('dragging');move(row);
+  if(el.hasPointerCapture(e.pointerId))el.releasePointerCapture(e.pointerId);
+ }
+ el.onpointerup=endDrag;el.onpointercancel=endDrag;el.onlostpointercapture=endDrag;
  el.onkeydown=e=>{
   const keys={ArrowDown:active+1,ArrowUp:active-1,PageDown:active+10,PageUp:active-10,Home:0,End:items.length-1};
   if(e.key in keys){e.preventDefault();move(keys[e.key])}
@@ -71,9 +99,9 @@ function birthday(fields){
   if(value>localToday())$('#status').textContent='Choose a birthday in the past.';
   else if(ticket||$('#status').textContent.startsWith('Choose a birthday'))$('#status').textContent='';
  }
- let dayWheel;
+ let dayWheel,dayCount;
  function days(){
-  const total=new Date(dob.year||2000,dob.month||1,0).getDate();dob.day=Math.min(dob.day,total);
+  const total=new Date(dob.year||2000,dob.month||1,0).getDate();if(total===dayCount)return;dayCount=total;dob.day=Math.min(dob.day,total);
   const control=wheel('Day',['Day',...range(1,total)],dob.day,i=>{dob.day=i;sync()});
   if(dayWheel)dayWheel.replaceWith(control.el);else group.append(control.el);
   dayWheel=control.el;control.position();
@@ -145,7 +173,7 @@ function trend(fields){
 const LB_KG = 0.45359237;
 const adultGoals = [['Lose weight','↓'],['Maintain','–'],['Gain weight','↑']];
 const habitGoals = [['Build strength','↑'],['Build endurance','↗'],['Build a routine','↻']];
-const barriers = [['Lack of consistency','↻'],['Unhealthy eating habits','♧'],['Lack of support','♡'],['Busy schedule','◷'],['Lack of meal inspiration','✧']];
+const barriers = [['Lack of consistency','🔁'],['Unhealthy eating habits','🍔'],['Lack of support','🤝'],['Busy schedule','🗓️'],['Lack of meal inspiration','🍽️']];
 let desiredKg = null;
 let paceLb = 0.5;
 function clientAge(){
@@ -248,12 +276,28 @@ function pacePicker(fields){
 }
 function coachFeatures(fields){
  const list=document.createElement('ul');list.className='features';fields.append(list);
- for(const [icon,title,copy] of [
-  ['◉','Snap your meal','Send a food or drink photo for a calorie estimate.'],
-  ['↗','Scan gym equipment','See what it trains and get a video demonstration.'],
-  ['✦','Text your AI coach','Ask for a workout that fits the time and equipment you have.']
- ]){
-  const li=document.createElement('li');li.innerHTML='<b aria-hidden="true">'+icon+'</b><div><strong>'+title+'</strong><p>'+copy+'</p></div>';list.append(li);
+ const cards=[
+  ['meal','Snap your meal','Send a food or drink photo for a calorie estimate.'],
+  ['equipment','Scan gym equipment','See what it trains and get a video demonstration.'],
+  ['chat','Text your AI coach','Ask for a workout that fits the time and equipment you have.']
+ ];
+ function show(active){
+  for(const button of list.querySelectorAll('button')){
+   const open=button===active;
+   button.setAttribute('aria-expanded',String(open));button.nextElementSibling.hidden=!open;
+  }
+ }
+ for(const [key,title,copy] of cards){
+  const li=document.createElement('li');li.className='feature';
+  li.innerHTML='<button type="button" aria-controls="tip-'+key+'" aria-expanded="false"><img alt="" src="../assets/feature-'+key+'.webp"><strong>'+title+'</strong></button><p id="tip-'+key+'" class="bubble" hidden>'+copy+'</p>';
+  const button=li.firstElementChild;
+  li.onpointerenter=e=>{if(e.pointerType==='mouse')show(button)};
+  li.onpointerleave=e=>{if(e.pointerType==='mouse')show(null)};
+  button.onfocus=()=>{if(button.matches(':focus-visible'))show(button)};
+  button.onblur=()=>show(null);
+  button.onclick=e=>{if(e.pointerType==='mouse'){show(button);return}show(button.getAttribute('aria-expanded')==='true'?null:button)};
+  button.onkeydown=e=>{if(e.key==='Escape')show(null)};
+  list.append(li);
  }
 }
 
@@ -340,7 +384,7 @@ const steps=[
  ['Which workouts would you like in your plan?','Choose all that fit.',[]],
  ['How much time can you usually set aside for a workout?','Choose what fits a typical day.',durations.map(v=>[v,'◷'])],
  ['Which food allergies should your coach plan around?','Select all that apply. You can add a food that isn’t listed.',[]],
- ['What would you most like to accomplish?','Choose what matters most to you day to day.',motivations.map((v,i)=>[v,['♧','☀','↗','♡'][i]] )],
+ ['What would you most like to accomplish?','Choose what matters most to you day to day.',motivations.map((v,i)=>[v,['🥗','☀️','💪','🧘'][i]] )],
  ['Your plan preview','',[]]
 ];
 const answers=['','','','','','','','continue','height','weight','','','','confirm','pace','features','','','','','','preview'];let index=0,busy=false,blocked=false;

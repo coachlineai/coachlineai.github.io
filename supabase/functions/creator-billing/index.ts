@@ -5,6 +5,33 @@ const cors = {'Access-Control-Allow-Origin':site,'Access-Control-Allow-Headers':
 const json = (body: unknown, status=200) => Response.json(body,{status,headers:cors});
 const day = (seconds:number) => new Date(seconds*1000).toISOString().slice(0,10);
 
+const lifetimeRegular=12000;
+const lifetimeEarly=9999;
+const earlyLimit=5;
+const couponId='coachline-lifetime-first-five-v1';
+
+// A creator can share an offer without opening three Stripe sessions or
+// claiming a launch place. Resolve its current price when the client visits.
+async function offerSignature(payload:string){
+  const bytes=new TextEncoder();
+  const key=await crypto.subtle.importKey('raw',bytes.encode(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);
+  return {key,message:bytes.encode('coachline-offer-v1:'+payload)};
+}
+async function issueOffer(creatorId:string){
+  const payload=[creatorId,Math.floor(Date.now()/1000)+86400,crypto.randomUUID()].join('.');
+  const {key,message}=await offerSignature(payload);
+  const sig=new Uint8Array(await crypto.subtle.sign('HMAC',key,message));
+  return payload+'.'+Array.from(sig,b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function resolveOffer(token:unknown){
+  if(typeof token!=='string'||token.length>200)return null;
+  const [creator,expires,nonce,signature,...extra]=token.split('.');
+  if(!creator||!nonce||extra.length||!/^\d{10}$/.test(expires)||! /^[a-f0-9]{64}$/.test(signature)||Number(expires)<=Date.now()/1000)return null;
+  const {key,message}=await offerSignature([creator,expires,nonce].join('.'));
+  const valid=await crypto.subtle.verify('HMAC',key,Uint8Array.from(signature.match(/../g)!,v=>parseInt(v,16)),message);
+  return valid?creator:null;
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response(null,{headers:cors});
   if (req.method !== 'POST') return json({error:'POST required'},405);
@@ -14,20 +41,29 @@ Deno.serve(async req => {
     const body = await req.json();
     const {action} = body;
     const intake = action === 'intake-prices' || action === 'intake-checkout';
+    const shared = action==='offer-prices' || action==='offer-checkout';
+    const client = intake || shared;
+    const quote = action==='intake-prices' || action==='offer-prices';
+    const buying = action==='intake-checkout' || action==='offer-checkout';
+    if(buying && !['week','year','once'].includes(body.plan))return json({error:'Choose a coaching plan.'},400);
     const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
     let creatorId: string;
     let demoEmail = false;
     if (intake) {
       if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.ticket || ''))
         return json({error:'Open your personal setup link.'},400);
-      if (action === 'intake-checkout' && !['week','year','once'].includes(body.plan))
-        return json({error:'Choose a coaching plan.'},400);
       const record = await admin.from('coach_client_intake').select('creator_id')
         .eq('invite',body.ticket).not('completed_at','is',null)
         .gte('issued_at',new Date(Date.now()-48*3600000).toISOString()).maybeSingle();
       if (record.error) throw record.error;
       if (!record.data) return json({error:'Text your coach for a new checkout link.'},403);
       creatorId = record.data.creator_id;
+    } else if(shared){
+      const ownerId=await resolveOffer(body.offer);
+      if(!ownerId)return json({error:'Ask your coach for a fresh checkout link.'},403);
+      creatorId=ownerId;
+    }
+    if(client){
       const owner = await admin.auth.admin.getUserById(creatorId);
       if (owner.error) throw owner.error;
       demoEmail = owner.data.user.email?.toLowerCase() === 'meetaka813@gmail.com';
@@ -40,24 +76,24 @@ Deno.serve(async req => {
       creatorId = user.id;
       demoEmail = user.email?.toLowerCase()==='meetaka813@gmail.com';
     }
-    async function pricing(){
+    async function pricing(remaining:number|null=null){
       const price=await admin.from('coach_pricing').select('weekly_cents,annual_cents').eq('creator_id',creatorId).maybeSingle();
       if (price.error) throw price.error;
       const reference=price.data?.annual_cents ?? 38352;
-      return {week:price.data?.weekly_cents ?? 799,year:Math.round(reference/12),once:23000,reference};
+      return {week:price.data?.weekly_cents ?? 799,year:Math.round(reference/12),once:remaining===0?lifetimeRegular:lifetimeEarly,remaining,reference};
     }
     const excluded = await admin.from('creator_payout_exclusions').select('creator_id').eq('creator_id',creatorId).maybeSingle();
     if (excluded.error) throw excluded.error;
     function unavailable(state:string, message:string) {
       return action==='status' ? json({state,total:0,clients:0,payments:[],payouts:[]}) : json({error:message},409);
     }
-    if (action === 'intake-prices' && (excluded.data || demoEmail))
+    if (quote && (excluded.data || demoEmail))
       return json({prices:await pricing(),available:false});
     if (excluded.data || demoEmail)
       return unavailable('demo','Live payments are disabled for this demo account.');
     const key = Deno.env.get('STRIPE_SECRET_KEY');
     const live = key?.startsWith('sk_live_') || key?.startsWith('rk_live_');
-    if (action==='intake-prices' && !live) return json({prices:await pricing(),available:false});
+    if (quote && !live) return json({prices:await pricing(),available:false});
     if (!live) return unavailable('setup','Coachline live payments setup is pending.');
     const lookup = () => admin.from('creator_stripe_accounts').select('account_id').eq('creator_id',creatorId).eq('live',true).maybeSingle();
     const mapping = await lookup();
@@ -69,6 +105,21 @@ Deno.serve(async req => {
       const result=await response.json();
       if (!response.ok) throw new Error(result.error?.code || 'Stripe request failed');
       return result;
+    }
+    async function launchCoupon(create=false){
+      try {return await stripe('coupons/'+couponId)}
+      catch(err){if(!(err instanceof Error)||err.message!=='resource_missing')throw err}
+      if(!create)return null;
+      return await stripe('coupons',{
+        id:couponId,name:'Lifetime training · first five',duration:'once',currency:'usd',
+        amount_off:String(lifetimeRegular-lifetimeEarly),max_redemptions:String(earlyLimit)
+      },{'Idempotency-Key':couponId});
+    }
+    async function remainingPlaces(){
+      const coupon=await launchCoupon();
+      if(!coupon)return earlyLimit;
+      if(coupon.max_redemptions!==earlyLimit||coupon.amount_off!==lifetimeRegular-lifetimeEarly||coupon.currency!=='usd')throw Error('Lifetime coupon configuration mismatch');
+      return coupon.valid?Math.max(0,earlyLimit-coupon.times_redeemed):0;
     }
     if (!account && action==='connect') {
       const created = await stripe('accounts',{
@@ -82,14 +133,14 @@ Deno.serve(async req => {
       if (!current.data) throw Error('Account mapping unavailable');
       account = current.data.account_id;
     }
-    if (action==='intake-prices' && !account) return json({prices:await pricing(),available:false});
+    if (quote && !account) return json({prices:await pricing(),available:false});
     if (!account) return unavailable('unconnected','Set up Stripe payouts first.');
     const acct = await stripe('accounts/'+account);
     const schedule = acct.settings?.payouts?.schedule;
     const verified = acct.charges_enabled && acct.payouts_enabled && acct.capabilities?.transfers==='active';
     const monthly = schedule?.interval==='monthly' && schedule.monthly_anchor===15;
     const ready = verified && monthly;
-    if (action==='intake-prices') return json({prices:await pricing(),available:Boolean(ready)});
+    if (quote) return json({prices:await pricing(ready?await remainingPlaces():null),available:Boolean(ready)});
     if (action==='connect') {
       const back = site+'/dashboard.html#settings/payments';
       if (!monthly) await stripe('accounts/'+account,{'settings[payouts][schedule][interval]':'monthly','settings[payouts][schedule][monthly_anchor]':'15'});
@@ -97,11 +148,19 @@ Deno.serve(async req => {
         await stripe('account_links',{account,return_url:back,refresh_url:back,type:'account_onboarding'});
       return json({url:link.url});
     }
-    if (!ready && (action==='checkout' || action==='intake-checkout' || !acct.details_submitted)) return unavailable('onboarding','Finish setting up Stripe payouts first.');
-    if (action==='checkout' || action==='intake-checkout') {
-      const {week:weekly,year:annual,once:single,reference}=await pricing();
+    if (!ready && (action==='checkout' || buying || !acct.details_submitted)) return unavailable('onboarding','Finish setting up Stripe payouts first.');
+    if(action==='checkout')return json({url:site+'/plans.html#offer='+await issueOffer(creatorId)});
+    if (buying) {
+      const plan=body.plan as 'week'|'year'|'once';
+      const prices=await pricing(plan==='once'?await remainingPlaces():null);
+      const cents=prices[plan];
+      const changed=()=>json({error:'The offer has changed. Review the current price before continuing.',changed:true},409);
+      if(cents!==body.expectedCents)return changed();
+      const launch=plan==='once' && cents===lifetimeEarly;
+      if(launch)await launchCoupon(true);
       async function checkout(interval: 'week' | 'year' | 'once', cents: number) {
         const session = await stripe('checkout/sessions', {
+          ...(launch?{'discounts[0][coupon]':couponId}:{}),
           mode: interval === 'once' ? 'payment' : 'subscription',
           ...(interval === 'once' ? {
             'invoice_creation[enabled]':'true',
@@ -118,28 +177,24 @@ Deno.serve(async req => {
           }) as Record<string,string>,
           'line_items[0][quantity]': '1',
           'line_items[0][price_data][currency]': 'usd',
-          'line_items[0][price_data][unit_amount]': String(cents),
-          'line_items[0][price_data][product_data][name]': 'AI coaching',
+          'line_items[0][price_data][unit_amount]': String(interval==='once'?lifetimeRegular:cents),
+          'line_items[0][price_data][product_data][name]':interval==='once'?'Coachline lifetime training':'AI coaching',
           'metadata[creator_id]': creatorId,
           'metadata[coachline_plan]': interval,
-          ...(intake?{'client_reference_id':clientRef}:{}),
+          client_reference_id:clientRef,
           success_url: site + '/',
-          cancel_url: intake ? site + '/plans.html' : site + '/'
-        }, intake ? {'Idempotency-Key':'coachline-intake-'+clientRef+'-'+interval+'-'+cents+'-'+Math.floor(Date.now()/86400000)} : {});
+          cancel_url: site + '/plans.html'
+        }, {'Idempotency-Key':'coachline-intake-'+clientRef+'-'+interval+'-'+cents+'-'+Math.floor(Date.now()/86400000)});
         return session.url as string;
       }
       // Use an opaque billing reference. The private setup link stays in the client.
-      const digest = intake ? await crypto.subtle.digest('SHA-256',new TextEncoder().encode('billing:'+body.ticket)) : null;
-      const clientRef = digest ? Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('') : '';
-      if (intake) {
-        const plan = body.plan as 'week'|'year'|'once';
-        const cents = {week:weekly,year:annual,once:single}[plan];
-        if (cents!==body.expectedCents) return json({error:'Your coach updated pricing. Review the new price.',changed:true},409);
-        return json({url:await checkout(plan,cents)});
+      const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('billing:'+(shared?body.offer:body.ticket)));
+      const clientRef=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('');
+      try{return json({url:await checkout(plan,cents)})}
+      catch(err){
+        if(launch && await remainingPlaces()===0)return changed();
+        throw err;
       }
-      const [week, year, once] = await Promise.all([checkout('week', weekly), checkout('year', annual), checkout('once', single)]);
-      const offer = new URLSearchParams({week, year, once, annual:String(annual), single:String(single), reference:String(reference), cents: String(weekly)});
-      return json({url: site + '/plans.html#' + offer});
 
     }
     async function list(path:string, scoped=false) {

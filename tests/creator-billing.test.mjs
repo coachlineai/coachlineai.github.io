@@ -5,7 +5,7 @@ import {test} from 'node:test';
 import vm from 'node:vm';
 
 const source = readFileSync(new URL('../supabase/functions/creator-billing/index.ts',import.meta.url),'utf8').replace(/^import .*;$/m,'');
-function fixture({demo=false, account=null, ready=false, intake=null, pricing=null}={}) {
+function fixture({demo=false, account=null, ready=false, intake=null, pricing=null,redeemed=null}={}) {
   const calls=[];
   let handler;
   const db={
@@ -24,6 +24,11 @@ function fixture({demo=false, account=null, ready=false, intake=null, pricing=nu
   async function fetch(url,req){
     const path=new URL(url).pathname.slice(4);
     calls.push({path,params:Object.fromEntries(req.body||[])});
+    if(path.startsWith('coupons/')){
+      if(redeemed===null)return Response.json({error:{code:'resource_missing'}},{status:404});
+      return Response.json({max_redemptions:5,amount_off:2001,currency:'usd',times_redeemed:redeemed,valid:redeemed<5});
+    }
+    if(path==='coupons'){redeemed=0;return Response.json({id:req.body.get('id')});}
     const data = path==='accounts'?{id:'acct_A'}:path==='accounts/acct_A'?{charges_enabled:ready,payouts_enabled:ready,capabilities:{transfers:'active'},settings:{payouts:{schedule:{interval:'monthly',monthly_anchor:15}}}}:{url:'https://checkout.stripe.com/c/pay/mock'};
     return Response.json(data);
   }
@@ -48,14 +53,22 @@ test('onboarding sets monthly payouts on day 15 and reuses the mapping',async()=
 });
 test('all three plans route the creator share to their Stripe account',async()=>{
   const f=fixture({account:'acct_A',ready:true});
-  assert.equal((await f.request('checkout')).status,200);
+  const issued=await (await f.request('checkout')).json();
+  const offer=new URLSearchParams(new URL(issued.url).hash.slice(1)).get('offer');
+  assert.ok(offer);
+  assert.equal(f.calls.filter(c=>c.path==='checkout/sessions').length,0);
+  assert.equal((await f.request('offer-prices',{offer:offer+'1'})).status,403);
+  const {prices}=await (await f.request('offer-prices',{offer})).json();
+  for(const plan of ['week','year','once']){
+    assert.equal((await f.request('offer-checkout',{offer,plan,expectedCents:prices[plan]})).status,200);
+  }
   const sessions=f.calls.filter(c=>c.path==='checkout/sessions');
   assert.equal(sessions.length,3);
   for(const {params} of sessions){
     const once=params.mode==='payment';
     const prefix=once?'payment_intent_data':'subscription_data';
     assert.equal(params[prefix+'[transfer_data][destination]'],'acct_A');
-    assert.equal(params[prefix+'[transfer_data]['+(once?'amount':'amount_percent')+']'],once?'18400':'80');
+    assert.equal(params[prefix+'[transfer_data]['+(once?'amount':'amount_percent')+']'],once?'7999':'80');
   }
 });
 
@@ -68,12 +81,12 @@ test('expired or unfinished intakes cannot open checkout',async()=>{
 test('intake quotes the creator prices and validates the amount before opening Stripe',async()=>{
   const f=fixture({intake:{creator_id:'creator'},account:'acct_A',ready:true,pricing:{weekly_cents:999,annual_cents:48000}});
   const quote=await (await f.request('intake-prices',{ticket})).json();
-  assert.deepEqual(quote,{prices:{week:999,year:4000,once:23000,reference:48000},available:true});
+  assert.deepEqual(quote,{prices:{week:999,year:4000,once:9999,remaining:5,reference:48000},available:true});
   assert.equal((await f.request('intake-checkout',{ticket,plan:'year',expectedCents:3196})).status,409);
-  for (const [plan,expectedCents] of [['year',4000],['once',23000],['week',999]]) {
+  for (const [plan,expectedCents] of [['year',4000],['once',9999],['week',999]]) {
     assert.equal((await f.request('intake-checkout',{ticket,plan,expectedCents})).status,200);
     const params=f.calls.at(-1).params;
-    assert.equal(params['line_items[0][price_data][unit_amount]'],String(expectedCents));
+    assert.equal(params['line_items[0][price_data][unit_amount]'],String(plan==='once'?12000:expectedCents));
     assert.equal(params['line_items[0][price_data][recurring][interval]'],plan==='once'?undefined:plan);
     assert.equal(params['metadata[creator_id]'],'creator');
     assert.ok(!JSON.stringify(params).includes(ticket));
@@ -82,6 +95,28 @@ test('intake quotes the creator prices and validates the amount before opening S
 test('unconnected creators can show prices without allowing payment',async()=>{
   const f=fixture({intake:{creator_id:'creator'}});
   const q=await (await f.request('intake-prices',{ticket})).json();
-  assert.deepEqual(q,{available:false,prices:{week:799,year:3196,once:23000,reference:38352}});
+  assert.deepEqual(q,{available:false,prices:{week:799,year:3196,once:9999,remaining:null,reference:38352}});
   assert.equal((await f.request('intake-checkout',{ticket,plan:'week',expectedCents:799})).status,409);
+});
+
+test('the first five lifetime redemptions share a single capped Stripe coupon',async()=>{
+  const f=fixture({account:'acct_A',ready:true,intake:{creator_id:'creator'}});
+  await f.request('intake-checkout',{ticket,plan:'once',expectedCents:9999});
+  const coupon=f.calls.find(c=>c.path==='coupons').params;
+  assert.equal(coupon.max_redemptions,'5');
+  assert.equal(coupon.amount_off,'2001');
+  assert.equal(f.calls.at(-1).params['discounts[0][coupon]'],coupon.id);
+});
+test('a sold-out offer requires a fresh confirmation of the regular price',async()=>{
+  const f=fixture({account:'acct_A',ready:true,intake:{creator_id:'creator'},redeemed:5});
+  const {prices}=await (await f.request('intake-prices',{ticket})).json();
+  assert.equal(prices.once,12000);
+  assert.equal(prices.remaining,0);
+  const stale=await f.request('intake-checkout',{ticket,plan:'once',expectedCents:9999});
+  assert.equal(stale.status,409);
+  assert.equal((await stale.json()).changed,true);
+  assert.equal((await f.request('intake-checkout',{ticket,plan:'once',expectedCents:12000})).status,200);
+  const params=f.calls.at(-1).params;
+  assert.equal(params['discounts[0][coupon]'],undefined);
+  assert.equal(params['payment_intent_data[transfer_data][amount]'],'9600');
 });

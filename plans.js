@@ -1,19 +1,24 @@
 const params=new URLSearchParams(location.hash.slice(1));
 const plans=document.querySelector('#plans'), pay=document.querySelector('#pay'), note=document.querySelector('#notice');
 const preview=params.has('preview'), legacy=params.has('week');
-let ticket=params.get('intake');
-if(ticket) sessionStorage.setItem('coachline-checkout-resume',ticket);
-else if(!location.hash) ticket=sessionStorage.getItem('coachline-checkout-resume');
-let prices, available=false, selected='year';
+let ticket=params.get('intake'), offer=params.get('offer');
+if(ticket||offer){
+  sessionStorage.setItem('coachline-checkout-resume',ticket||'');
+  sessionStorage.setItem('coachline-offer-resume',offer||'');
+}else if(!location.hash){
+  ticket=sessionStorage.getItem('coachline-checkout-resume');
+  offer=sessionStorage.getItem('coachline-offer-resume');
+}
+let prices, available=false, selected='once';
 const currency=cents=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
-const titles={year:'Annual coaching',week:'Weekly coaching',once:'One-time coaching'};
+const titles={year:'Annual coaching',week:'Weekly coaching',once:'Lifetime training'};
 function checkoutUrl(value){
   try{const url=new URL(value);return url.origin==='https://checkout.stripe.com' && url.pathname.startsWith('/c/pay/') ? url.href : null;}catch{return null;}
 }
 async function billing(action,extra={}){
   const r=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/functions/v1/creator-billing',{
     method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},
-    body:JSON.stringify({action,ticket,...extra})
+    body:JSON.stringify({action:(offer?'offer-':'intake-')+action,ticket,offer,...extra})
   });
   const data=await r.json();
   if(!r.ok)throw Object.assign(new Error(data.error||'Couldn’t load your coach’s plans.'),{changed:data.changed});
@@ -26,10 +31,11 @@ function showTerms(){
 }
 function draw(){
   plans.replaceChildren();
-  for(const id of ['year','week','once']){
+  if(!prices[selected])selected='year';
+  for(const id of ['once','year','week']){
     const amount=prices[id];if(!Number.isInteger(amount)||amount<50)continue;
     const card=document.createElement('div');card.className='card'+(id==='once'?' highlight':'');
-    card.innerHTML=(id==='once'?'<div class="ribbon">One payment · All plan features</div>':'')+
+    card.innerHTML=(id==='once'?'<div class="ribbon">Lifetime access · One payment</div>':'')+
       '<label><input type="radio" name="plan"><span><strong></strong><small class="caption"></small></span><b class="amount"></b></label><details><summary>Plan details</summary><ul></ul></details>';
     card.querySelector('strong').textContent=titles[id];
     const caption=card.querySelector('.caption');
@@ -53,23 +59,36 @@ function draw(){
       list.append(li);
     }
     // Make the calling availability visible before expanding the details.
-    if(id==='once')caption.textContent='Includes unlimited AI calls when calling launches';
+    if(id==='once'){
+      caption.textContent='Train with your AI coach for life.';
+      if(!legacy){
+        const offerInfo=document.createElement('div');offerInfo.className='launch-pricing';
+        const early=amount===9999;
+        const availability=early && Number.isInteger(prices.remaining)?' · '+prices.remaining+' left':'';
+        offerInfo.innerHTML='<div class="tier"><b>$99.99</b><small></small></div><div class="tier"><b>$120</b><small>Regular lifetime price</small></div>';
+        const [launch,regular]=offerInfo.children;
+        launch.querySelector('small').textContent=early?'First 5 buyers'+availability:'First 5 · Sold out';
+        (early?launch:regular).classList.add('current');
+        if(!early)launch.classList.add('sold-out');
+        card.querySelector('details').before(offerInfo);
+      }
+    }
     plans.append(card);
   }
   showTerms();
 }
 async function load(){
-  if(preview){prices={week:799,year:3196,once:23000,reference:38352};note.textContent='Preview prices. Open your personal setup link to see your coach’s offer.';}
+  if(preview){prices={week:799,year:3196,once:9999,reference:38352};note.textContent='Preview prices. Open your personal setup link to see your coach’s offer.';}
   else if(legacy){
     const extended=params.has('once');
     const week=Number(params.get('cents'));
     prices={week,year:extended?Number(params.get('annual')):Math.round(week*52*.65),once:extended?Number(params.get('single')):null,reference:params.has('reference')?Number(params.get('reference')):null};
     available=(extended?['week','year','once']:['week','year']).every(id=>Number.isSafeInteger(prices[id])&&prices[id]>=50&&checkoutUrl(params.get(id)));
     if(!available)throw Error('Ask your coach for a fresh checkout link.');
-  }else if(ticket){
-    const result=await billing('intake-prices');prices=result.prices;available=result.available;
+  }else if(ticket||offer){
+    const result=await billing('prices');prices=result.prices;available=result.available;
     document.querySelector('#messages').hidden=available;
-    note.textContent=available?'':'Your profile is saved. Your coach is still setting up payments. You can return to Messages.';
+    note.textContent=available?'':(ticket?'Your profile is saved. ':'')+'Your coach is still setting up payments.';
   }else throw Error('Open the personal link from your coaching conversation to see your plans.');
   draw();
 }
@@ -77,7 +96,7 @@ pay.onclick=async()=>{
   if(!available)return;
   pay.disabled=true;plans.disabled=true;note.textContent='Opening Stripe…';
   try{
-    const result=legacy?{url:params.get(selected)}:await billing('intake-checkout',{plan:selected,expectedCents:prices[selected]});
+    const result=legacy?{url:params.get(selected)}:await billing('checkout',{plan:selected,expectedCents:prices[selected]});
     const url=checkoutUrl(result.url);if(!url)throw Error('Ask your coach for a new checkout link.');
     location.assign(url);
   }catch(err){

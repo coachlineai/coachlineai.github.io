@@ -66,7 +66,7 @@ export async function initBilling(user, updateIncome) {
     const button=save.querySelector('button');
     button.disabled=true;
     try {
-      const {error}=await db.from('coach_pricing').upsert({creator_id:user.id,weekly_cents:cents, annual_cents:Math.round(annualPrice.valueAsNumber*100), one_time_cents:23000});
+      const {error}=await db.from('coach_pricing').upsert({creator_id:user.id,weekly_cents:cents, annual_cents:Math.round(annualPrice.valueAsNumber*100)});
       if (error) throw error;
       feedback.textContent='Prices saved for new checkouts.';
       byId('checkout-link').hidden=true;
@@ -85,7 +85,7 @@ export async function initBilling(user, updateIncome) {
     if (error) throw error;
     price.value=((data?.weekly_cents ?? 799)/100).toFixed(2);
     annualPrice.value=((data?.annual_cents ?? 38352)/100).toFixed(2);
-    oneTimePrice.value=((data?.one_time_cents ?? 23000)/100).toFixed(2);
+    oneTimePrice.value=((data?.one_time_cents ?? 12000)/100).toFixed(2);
     price.disabled=annualPrice.disabled=false;updateAnnualPreview();save.querySelector('button').disabled=false;
   };
   loadPrice().catch(()=>{feedback.textContent='Could not load pricing. Reload to retry.';});
