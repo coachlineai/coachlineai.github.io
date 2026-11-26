@@ -9,6 +9,7 @@ if(ticket||offer){
   ticket=sessionStorage.getItem('coachline-checkout-resume');
   offer=sessionStorage.getItem('coachline-offer-resume');
 }
+let simulating=preview;
 let prices, available=false, selected=preview && ['once','year','week'].includes(params.get('plan'))?params.get('plan'):'once';
 const currency=cents=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
 const titles={year:'Annual coaching',week:'Weekly coaching',once:'One-time payment'};
@@ -71,7 +72,7 @@ function draw(){
   showTerms();
 }
 async function load(){
-  if(preview){prices={week:799,year:3199,once:9999,reference:38388};available=true;pay.textContent='Preview checkout';note.textContent='Try checkout without making a payment.';}
+  if(preview){sessionStorage.removeItem('coachline-preview-line');prices={week:799,year:3199,once:9999,reference:38388};available=true;pay.textContent='Preview checkout';note.textContent='Try checkout without making a payment.';}
   else if(legacy){
     const extended=params.has('once');
     const week=Number(params.get('cents'));
@@ -79,7 +80,23 @@ async function load(){
     available=(extended?['week','year','once']:['week','year']).every(id=>Number.isSafeInteger(prices[id])&&prices[id]>=50&&checkoutUrl(params.get(id)));
     if(!available)throw Error('Ask your coach for a fresh checkout link.');
   }else if(ticket||offer){
-    const result=await billing('prices');prices=result.prices;available=result.available;
+    const result=await billing('prices');
+    const messages=document.querySelector('#messages');
+    const hasLine=/^\+[1-9]\d{7,14}$/.test(result.coachPhone);
+    if(hasLine)messages.href='sms:'+result.coachPhone;
+    if(result.active){
+      available=false;plans.replaceChildren();pay.hidden=true;
+      document.querySelector('#terms').textContent='';
+      note.textContent='Your coaching plan is active. Return to your conversation to get started.';
+      messages.hidden=!hasLine;return;
+    }
+    if(result.simulation){
+      if(hasLine)sessionStorage.setItem('coachline-preview-line',result.coachPhone);
+      else sessionStorage.removeItem('coachline-preview-line');
+      simulating=true;available=true;prices=result.prices;pay.textContent='Preview checkout';
+      note.textContent='Try the payment-free preview, then return to Messages.';draw();return;
+    }
+    prices=result.prices;available=result.available;
     document.querySelector('#messages').hidden=available;
     note.textContent=available?'':(ticket?'Your profile is saved. ':'')+'Your coach is still setting up payments.';
   }else throw Error('Open the personal link from your coaching conversation to see your plans.');
@@ -89,7 +106,7 @@ pay.onclick=async()=>{
   if(!available)return;
   pay.disabled=true;plans.disabled=true;note.textContent='Opening Stripe…';
   try{
-    if(preview){
+    if(simulating){
       const response=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/functions/v1/checkout-status',{
         method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},
         body:JSON.stringify({action:'preview',plan:selected,attempt:crypto.randomUUID()})

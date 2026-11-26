@@ -30,9 +30,12 @@ function order(plan,cents,preview){
   list.hidden=false;
 }
 function demoComplete(){
-  el('heading').textContent='Preview complete';
-  el('message').textContent='No payment was taken. A paying client would see their confirmation here.';
+  el('heading').textContent='Ready to head back to Messages?';
+  el('message').textContent='Your preview is complete. You can message your coach about setup. Personal coaching starts after payment.';
   el('action').hidden=true;
+  const coachLine=sessionStorage.getItem('coachline-preview-line');
+  el('sms').href='sms:'+(/^\+[1-9]\d{7,14}$/.test(coachLine)?coachLine:'+16177106179');
+  el('sms').hidden=false;
 }
 async function confirmPayment(){
   el('action').hidden=true;
