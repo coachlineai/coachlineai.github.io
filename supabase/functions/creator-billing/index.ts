@@ -79,7 +79,7 @@ Deno.serve(async req => {
     async function pricing(remaining:number|null=null){
       const price=await admin.from('coach_pricing').select('weekly_cents,annual_cents').eq('creator_id',creatorId).maybeSingle();
       if (price.error) throw price.error;
-      const reference=price.data?.annual_cents ?? 38352;
+      const reference=price.data?.annual_cents ?? 38388;
       return {week:price.data?.weekly_cents ?? 799,year:Math.round(reference/12),once:remaining===0?lifetimeRegular:lifetimeEarly,remaining,reference};
     }
     const excluded = await admin.from('creator_payout_exclusions').select('creator_id').eq('creator_id',creatorId).maybeSingle();

@@ -39,13 +39,17 @@ function draw(){
       '<label><input type="radio" name="plan"><span><strong></strong><small class="caption"></small></span><b class="amount"></b></label><details><summary>Plan details</summary><ul></ul></details>';
     card.querySelector('strong').textContent=titles[id];
     const caption=card.querySelector('.caption');
-    caption.textContent=id==='once'?'Pay once':id==='week'?currency(amount*4)+' over four weeks':'Billed once a year';
+    caption.textContent=id==='once'?'Pay once':id==='week'?currency(amount*4)+' over four weeks':'A full year of meal scans, workouts, and coach messaging.';
+    const price=card.querySelector('.amount');
+    price.textContent=currency(amount)+(id==='week'?' / wk':id==='year'?' / yr':'');
     if(id==='year' && Number.isInteger(prices.reference) && Math.round(prices.reference/12)===amount){
-      caption.replaceChildren();const base=document.createElement('s');base.textContent=currency(prices.reference);
-      const discount=document.createElement('span');discount.className='discount';discount.textContent='91.67% off';
-      caption.append(base,' · ',discount);
+      card.classList.add('annual-offer');
+      const regular=document.createElement('s');regular.textContent=currency(prices.reference);
+      regular.setAttribute('aria-label','Annual reference price '+currency(prices.reference));
+      const current=document.createElement('span');current.textContent=price.textContent;
+      const discount=document.createElement('small');discount.className='discount';discount.textContent='91.67% off';
+      price.replaceChildren(regular,current,discount);
     }
-    card.querySelector('.amount').textContent=currency(amount)+(id==='week'?' / wk':id==='year'?' / yr':'');
     const radio=card.querySelector('input');radio.value=id;radio.checked=id===selected;
     radio.onchange=()=>{selected=id;showTerms();};
     const list=card.querySelector('ul');
@@ -78,7 +82,7 @@ function draw(){
   showTerms();
 }
 async function load(){
-  if(preview){prices={week:799,year:3196,once:9999,reference:38352};note.textContent='Preview prices. Open your personal setup link to see your coach’s offer.';}
+  if(preview){prices={week:799,year:3199,once:9999,reference:38388};note.textContent='Preview prices. Open your personal setup link to see your coach’s offer.';}
   else if(legacy){
     const extended=params.has('once');
     const week=Number(params.get('cents'));

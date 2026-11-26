@@ -84,7 +84,7 @@ export async function initBilling(user, updateIncome) {
     const {data,error}=await db.from('coach_pricing').select('weekly_cents,annual_cents,one_time_cents').eq('creator_id',user.id).maybeSingle();
     if (error) throw error;
     price.value=((data?.weekly_cents ?? 799)/100).toFixed(2);
-    annualPrice.value=((data?.annual_cents ?? 38352)/100).toFixed(2);
+    annualPrice.value=((data?.annual_cents ?? 38388)/100).toFixed(2);
     oneTimePrice.value=((data?.one_time_cents ?? 12000)/100).toFixed(2);
     price.disabled=annualPrice.disabled=false;updateAnnualPreview();save.querySelector('button').disabled=false;
   };

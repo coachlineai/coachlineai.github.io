@@ -82,7 +82,7 @@ test('intake quotes the creator prices and validates the amount before opening S
   const f=fixture({intake:{creator_id:'creator'},account:'acct_A',ready:true,pricing:{weekly_cents:999,annual_cents:48000}});
   const quote=await (await f.request('intake-prices',{ticket})).json();
   assert.deepEqual(quote,{prices:{week:999,year:4000,once:9999,remaining:5,reference:48000},available:true});
-  assert.equal((await f.request('intake-checkout',{ticket,plan:'year',expectedCents:3196})).status,409);
+  assert.equal((await f.request('intake-checkout',{ticket,plan:'year',expectedCents:3199})).status,409);
   for (const [plan,expectedCents] of [['year',4000],['once',9999],['week',999]]) {
     assert.equal((await f.request('intake-checkout',{ticket,plan,expectedCents})).status,200);
     const params=f.calls.at(-1).params;
@@ -95,7 +95,7 @@ test('intake quotes the creator prices and validates the amount before opening S
 test('unconnected creators can show prices without allowing payment',async()=>{
   const f=fixture({intake:{creator_id:'creator'}});
   const q=await (await f.request('intake-prices',{ticket})).json();
-  assert.deepEqual(q,{available:false,prices:{week:799,year:3196,once:9999,remaining:null,reference:38352}});
+  assert.deepEqual(q,{available:false,prices:{week:799,year:3199,once:9999,remaining:null,reference:38388}});
   assert.equal((await f.request('intake-checkout',{ticket,plan:'week',expectedCents:799})).status,409);
 });
 
