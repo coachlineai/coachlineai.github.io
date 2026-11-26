@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><title>Your coaching profile · Coachline</title>
-<style>
+<link rel="stylesheet" href="./summary.css"><style>
 *{box-sizing:border-box}body{margin:0;color:#201e29;background:#f7f7fa;font:16px/1.45 Inter,system-ui,sans-serif}main{background:white;max-width:620px;margin:clamp(0px,5vh,52px) auto;padding:32px clamp(22px,5vw,54px);border:1px solid #e6e4eb;border-radius:30px;display:flex;flex-direction:column;min-height:min(790px,90dvh)}header,nav,label.option{display:flex;align-items:center}header{gap:8px;font-weight:750;letter-spacing:-.5px}header b{background:#6556ef;color:white;border-radius:50%;width:27px;text-align:center;font-size:19px}nav{gap:16px;margin:34px 0 20px}button,input{font:inherit}button{cursor:pointer}.back{border:0;border-radius:50%;height:44px;width:44px;background:#f4f3f7;font-size:22px}.back:disabled{opacity:.38}.track{height:4px;flex:1;background:#eeedf1;border-radius:8px;overflow:hidden}.fill{height:100%;background:#24212b;transition:width .2s}small{color:#706b7a}h1{letter-spacing:-.052em;line-height:1.07;font-size:clamp(34px,6vw,49px);margin:12px 0}p{color:#655f6e;margin:0 0 20px}form{display:flex;flex:1;flex-direction:column}.fields{margin:auto 0;padding:32px 0}.fields.name{margin:0}.name label{display:grid;gap:6px;color:#5d5766;font-size:14px}.name input{font-size:20px;border:1.5px solid #b8b5c0;border-radius:16px;padding:16px;width:100%}label.option{gap:14px;cursor:pointer;border:1px solid #dedce4;border-radius:16px;padding:13px 16px;margin:10px 0;min-height:68px}.option:has(:checked){box-shadow:inset 0 0 0 1px #25212d;border-color:#25212d;background:#faf9fc}.symbol{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#f5f4f8;font-size:20px}.option strong,.option small{display:block}.option input{margin-left:auto;width:20px;height:20px;accent-color:#24212b}.next,.return{background:#211e29;color:white;border:0;border-radius:99px;padding:16px 24px;font-weight:650;text-align:center;text-decoration:none}.next:disabled{background:#d6d4da;color:#55505c;cursor:default}footer{margin-top:auto;display:grid;gap:10px}#status{color:#655f6e;font-size:14px}button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #7566ea;outline-offset:3px}[hidden]{display:none!important}@media(max-width:640px){body{background:white}main{border:0;border-radius:0;margin:0;min-height:100dvh;padding:24px 22px max(20px,env(safe-area-inset-bottom))}nav{margin-top:25px}}
 @media(prefers-reduced-motion:reduce){.fill{transition:none}}
 .fields.referrals{padding:10px 0 20px}.referrals label.option{min-height:52px;margin:7px 0;padding:7px 14px}
@@ -30,6 +30,7 @@ h1 em,.estimate em{color:#6452c7;font-style:normal}.confetti{position:fixed;inse
 <main><header><b aria-hidden="true">✦</b> Coachline</header><nav aria-label="Onboarding progress"><button class="back" type="button" aria-label="Previous step">←</button><div class="track"><div class="fill"></div></div><small id="step"></small></nav><form><h1 tabindex="-1"></h1><p id="hint"></p><div class="fields"></div><footer><span role="status" id="status"></span><button class="next">Continue</button><a class="return" hidden href="sms:+16177106179">Return to Messages</a></footer></form></main>
 <dialog aria-labelledby="age-title" aria-describedby="age-description"><h2 id="age-title">Coachline is for ages 13 and up</h2><p id="age-description">You can start coaching once you turn 13.</p><button class="next" type="button" autofocus>OK</button></dialog>
 <script type="module">
+import {prepareSummary,renderSummary} from './summary.js';
 const $=s=>document.querySelector(s);
 const ticket=location.hash.slice(1);
 const sources=[['TikTok','♪'],['X','𝕏'],['Google','G'],['YouTube','▶'],['Instagram','◎'],['Friend or family','♡'],['Other','…']];
@@ -139,7 +140,7 @@ function weightPicker(fields,target=false){
  });
 }
 function trend(fields){
- fields.innerHTML='<figure class="trend"><figcaption>Building a routine</figcaption><svg viewBox="0 0 320 130" role="img" aria-label="Illustration of a routine becoming more consistent over six months"><path d="M8 40H312 M8 80H312 M8 120H312" fill="none" stroke="#dedbe7" stroke-dasharray="3 4"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16 L312 120 H8Z" fill="#ebe8ff"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16" fill="none" stroke="#6556ef" stroke-width="3"/><circle cx="312" cy="16" r="5" fill="#6556ef"/></svg><div class="months"><span>Month 1</span><span>Month 6</span></div><p><strong>✦ Coachline</strong><br>Snap a meal, scan gym equipment, or text your AI coach about your next workout.</p></figure>';
+ fields.innerHTML='<figure class="trend"><figcaption>Building a routine</figcaption><svg viewBox="0 0 320 130" role="img" aria-label="Illustration of a routine becoming more consistent over six months"><path d="M8 40H312 M8 80H312 M8 120H312" fill="none" stroke="#dedbe7" stroke-dasharray="3 4"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16 L312 120 H8Z" fill="#ebe8ff"/><path d="M8 108 C55 108 68 100 96 87 S142 87 178 65 S239 55 265 34 S298 30 312 16" fill="none" stroke="#6556ef" stroke-width="3" pathLength="1"/><circle cx="312" cy="16" r="5" fill="#6556ef"/></svg><div class="months"><span>Month 1</span><span>Month 6</span></div><p><strong>✦ Coachline</strong><br>Snap a meal, scan gym equipment, or text your AI coach about your next workout.</p></figure>';
 }
 const LB_KG = 0.45359237;
 const adultGoals = [['Lose weight','↓'],['Maintain','–'],['Gain weight','↑']];
@@ -195,6 +196,21 @@ function calendarEstimate(weeks){
  const count=Math.max(1,Math.round(months>=2?months:weeks));
  return count+' '+(months>=2?'month':'week')+(count===1?'':'s');
 }
+function energyModel(){
+  const losing=answers[11]==='Lose weight';
+  // Adult resting energy estimate, scaled by reported exercise frequency.
+  const base=10*weightKg+6.25*heightCm-5*clientAge();
+  const activity={'0–2':1.3,'3–5':1.5,'6+':1.7}[answers[2]];
+  const offsets=answers[1]==='Male'?[5]:answers[1]==='Female'?[-161]:[-161,5];
+  // A static energy equivalent for comparing paces. Actual energy needs change over time.
+  function intakeAt(rateLb){
+   return offsets.map(offset=>Math.round((base+offset)*activity+(losing?-1:1)*rateLb*3500/7));
+  }
+  function canShowIntake(values){
+   return values[0]>=Math.max(1500,base+offsets[0])&&values.at(-1)<=5000;
+  }
+  return {intakeAt,canShowIntake};
+}
 function pacePicker(fields){
  const losing=answers[11]==='Lose weight';
  const max=losing?2:1;
@@ -210,17 +226,7 @@ function pacePicker(fields){
   const weeks=Math.abs(desiredKg-weightKg)/(LB_KG*paceLb);
   fields.querySelector('em').textContent=calendarEstimate(weeks);
   fields.querySelector('.estimate p').textContent=['A smaller daily change gives you more time to build your routine.','This pace spreads the change across your weekly routine.','A faster pace calls for a larger daily change.'][band];
-  // Adult resting energy estimate, scaled by reported exercise frequency.
-  const base=10*weightKg+6.25*heightCm-5*clientAge();
-  const activity={'0–2':1.3,'3–5':1.5,'6+':1.7}[answers[2]];
-  const offsets=answers[1]==='Male'?[5]:answers[1]==='Female'?[-161]:[-161,5];
-  // A static energy equivalent for comparing paces. Actual energy needs change over time.
-  function intakeAt(rateLb){
-   return offsets.map(offset=>Math.round((base+offset)*activity+(losing?-1:1)*rateLb*3500/7));
-  }
-  function canShowIntake(values){
-   return values[0]>=Math.max(1500,base+offsets[0])&&values.at(-1)<=5000;
-  }
+  const {intakeAt,canShowIntake}=energyModel();
   const estimates=intakeAt(paceLb);
   let message;
   if(canShowIntake(estimates)){
@@ -301,7 +307,7 @@ function progressPreview(fields){
  const down=answers[11]==='Lose weight';
  const start=maintaining?56:down?21:86,end=maintaining?56:down?86:21;
  const line='M12 '+start+' C115 '+start+' 211 '+end+' 308 '+end;
- chart.innerHTML='<path d="'+line+' L308 103 H12 Z" fill="#eeeafd"/><path d="'+line+'" fill="none" stroke="#6954d9" stroke-width="3"/><circle cx="12" cy="'+start+'" r="5" fill="white" stroke="#6954d9" stroke-width="3"/><circle cx="308" cy="'+end+'" r="7" fill="#6954d9"/>';
+ chart.innerHTML='<path d="'+line+' L308 103 H12 Z" fill="#eeeafd"/><path d="'+line+'" fill="none" stroke="#6954d9" stroke-width="3" pathLength="1"/><circle cx="12" cy="'+start+'" r="5" fill="white" stroke="#6954d9" stroke-width="3" pathLength="1"/><circle cx="308" cy="'+end+'" r="7" fill="#6954d9"/>';
  const labels=document.createElement('div');labels.className='plan-labels';
  const weight=kg=>(kg/(units.weight==='lbs'?LB_KG:1)).toFixed(1)+' '+units.weight;
  const begin=document.createElement('span'),finish=document.createElement('span');
@@ -382,7 +388,7 @@ function render(){
  if(index===11&&answers[11]!==value){desiredKg=null;answers[12]='';paceLb=.5}
  answers[index]=value;refreshProgress();$('form .next').disabled=false};fields.append(label);
  }
- $('form .next').textContent=index===steps.length-1?'Finish setup':'Continue';$('form .next').disabled=!answers[index].trim()||(index===3&&answers[3]>localToday());$('#status').textContent=!ticket?'Preview · Text your coach for your personal setup link.':'';
+ $('form .next').textContent=index===steps.length-1?'See my summary':'Continue';$('form .next').disabled=!answers[index].trim()||(index===3&&answers[3]>localToday());$('#status').textContent=!ticket?'Preview · Text your coach for your personal setup link.':'';
  fadeInStep();
 }
 const endpoint='https://kvpngwwaemdjwchslcov.supabase.co/rest/v1/rpc/';
@@ -395,7 +401,9 @@ ageDialog.onclose=()=>{if(blocked){
 }};
 $('.back').onclick=()=>{if(index && !busy){const path=route();index=path[path.indexOf(index)-1];render();$('h1').focus()}};
 $('form').onsubmit=async event=>{
- event.preventDefault();if(blocked||busy||!answers[index].trim())return;
+ event.preventDefault();
+ if(reviewing){location.assign('../plans.html#'+(ticket?'intake='+encodeURIComponent(ticket):'preview'));return;}
+ if(blocked||busy||!answers[index].trim())return;
  if(index===3){
   if(answers[3]>localToday())return;
   let allowed=oldEnough(answers[3],localToday());
@@ -420,12 +428,42 @@ $('form').onsubmit=async event=>{
    answers[11]=answers[12]='';desiredKg=null;
   }
   const path=route();index=path[path.indexOf(index)+1];render();$('h1').focus();return}
- if(!ticket){$('#status').textContent='To save your profile, open the personal link from your coaching conversation.';return}
- busy=true;$('form .next').disabled=$('.back').disabled=true;$('#status').textContent='Saving your profile…';
+ await finishSetup();
+};
+async function finishSetup(){
+ busy=true; const btn=$('form .next'),back=$('.back'),fields=$('.fields');
+ btn.hidden=back.disabled=true;
+ $('h1').textContent='Preparing your plan';$('#hint').textContent='';$('#status').textContent='';
  try{
+  await prepareSummary(fields,answers[0].trim(),async()=>{
+   if(!ticket)return;
  const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(5),has_trainer:answers[10]==='Yes',goal:answers[11],target_kg:isChangeGoal()?+desiredKg.toFixed(5):null,weekly_lb:isChangeGoal()?paceLb:null,barrier:answers[16],styles:[...selections.workouts],session_length:answers[18],allergies:[...selections.allergies],other_food:selections.allergies.has('Other food allergy')?otherAllergy.trim():null,motivation:answers[20]})});
  if(!response.ok||await response.json()!==true)throw Error();
- $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;$('h1').textContent='You’re ready to train.';$('#hint').textContent='Head back to Messages and tell your coach what you want to work on.';$('#status').textContent='';$('.return').hidden=false;fadeInStep();$('h1').focus();
- }catch{$('#status').textContent='Couldn’t save. Try again, or text your coach for a fresh link.';$('form .next').disabled=$('.back').disabled=false}finally{busy=false}
-};render();
+  });
+  back.disabled=false;btn.hidden=false;showSummary();
+ }catch{
+  render();$('#status').textContent='Your answers are still here. Try saving again, or ask your coach for a fresh link.';
+  btn.hidden=false;back.disabled=false;
+ }finally{busy=false;}
+}
+let reviewing=false;
+function showSummary(){
+ reviewing=true;
+ const fields=$('.fields');fields.replaceChildren();progressPreview(fields);
+ const model=energyModel(),changing=isChangeGoal(),teen=clientAge()<18;
+ const energy=teen?[]:model.intakeAt(changing?paceLb:0);
+ const weight=kg=>(kg/(units.weight==='lbs'?LB_KG:1)).toFixed(1)+' '+units.weight;
+ const date=new Date();
+ if(changing)date.setDate(date.getDate()+Math.ceil(Math.abs(desiredKg-weightKg)/(LB_KG*paceLb)*7));
+ const rows=[
+  ['Your profile',[['Name',answers[0]],['Birth date',answers[3]],['Sex',answers[1]],['Height',units.height==='cm'?Math.round(heightCm)+' cm':Math.floor(Math.round(heightCm/2.54)/12)+' ft '+Math.round(heightCm/2.54)%12+' in'],['Starting weight',weight(weightKg)],['Goal',answers[11]],...(changing?[['Goal weight',weight(desiredKg)],['Weekly pace',units.weight==='lbs'?paceLb.toFixed(1)+' lb':(paceLb*LB_KG).toFixed(2)+' kg']]:[])]],
+  ['Your training',[['Workouts per week',answers[2]],['Workout styles',[...selections.workouts].join(', ')],['Session length',answers[18]],['Trainer or dietitian',answers[10]]]],
+  ['What your coach should know',[['Food allergies',[...selections.allergies].map(v=>v==='Other food allergy'?otherAllergy.trim():v).join(', ')],['Biggest obstacle',answers[16]],['Motivation',answers[20]],['Tried calorie tracking',answers[5]],['Tried fitness apps',answers[6]],['Heard about Coachline',answers[4]]]]
+ ];
+ renderSummary(fields,{rows,energy:energy.length&&model.canShowIntake(energy)?energy:[],targetDate:changing?date.toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}):null,goal:answers[11],direction:answers[11]==='Lose weight'?'lose':'gain',change:changing?(Math.abs(desiredKg-weightKg)/(units.weight==='lbs'?LB_KG:1)).toFixed(1):'',units:units.weight,teen,name:answers[0].trim()});
+ $('nav').hidden=true;$('#status').textContent=ticket?'Your profile is saved for your coach.':'Preview · Your answers are only shown here.';
+ $('form .next').textContent='Explore coaching plans';$('form .next').disabled=false;
+ $('h1').focus();window.scrollTo(0,0);
+}
+render();
 </script></html>

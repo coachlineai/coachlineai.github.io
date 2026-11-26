@@ -66,20 +66,27 @@ export async function initBilling(user, updateIncome) {
     const button=save.querySelector('button');
     button.disabled=true;
     try {
-      const {error}=await db.from('coach_pricing').upsert({creator_id:user.id,weekly_cents:cents, annual_cents:Math.round(annualPrice.valueAsNumber*100), one_time_cents:Math.round(oneTimePrice.valueAsNumber*100)});
+      const {error}=await db.from('coach_pricing').upsert({creator_id:user.id,weekly_cents:cents, annual_cents:Math.round(annualPrice.valueAsNumber*100), one_time_cents:23000});
       if (error) throw error;
       feedback.textContent='Prices saved for new checkouts.';
       byId('checkout-link').hidden=true;
     } catch(err) {feedback.textContent=err.message;}
     finally {button.disabled=false;}
   };
+  function updateAnnualPreview(){
+    const base = Math.round(annualPrice.valueAsNumber * 100);
+    byId('annual-preview').textContent = annualPrice.validity.valid && Number.isFinite(base)
+      ? 'Client pays $' + (Math.round(base / 12) / 100).toFixed(2) + ' per year (91.67% off).'
+      : 'Enter an annual reference price of at least $6.';
+  }
+  annualPrice.addEventListener('input',updateAnnualPreview);
   const loadPrice=async()=>{
     const {data,error}=await db.from('coach_pricing').select('weekly_cents,annual_cents,one_time_cents').eq('creator_id',user.id).maybeSingle();
     if (error) throw error;
-    price.value=((data?.weekly_cents ?? 399)/100).toFixed(2);
-    annualPrice.value=((data?.annual_cents ?? 14600)/100).toFixed(2);
+    price.value=((data?.weekly_cents ?? 799)/100).toFixed(2);
+    annualPrice.value=((data?.annual_cents ?? 38352)/100).toFixed(2);
     oneTimePrice.value=((data?.one_time_cents ?? 23000)/100).toFixed(2);
-    price.disabled=annualPrice.disabled=oneTimePrice.disabled=false;save.querySelector('button').disabled=false;
+    price.disabled=annualPrice.disabled=false;updateAnnualPreview();save.querySelector('button').disabled=false;
   };
   loadPrice().catch(()=>{feedback.textContent='Could not load pricing. Reload to retry.';});
   await refresh();

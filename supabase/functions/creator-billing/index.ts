@@ -11,24 +11,55 @@ Deno.serve(async req => {
   try {
     const url = Deno.env.get('SUPABASE_URL')!;
     const caller = createClient(url,Deno.env.get('SUPABASE_ANON_KEY')!,{global:{headers:{Authorization:req.headers.get('Authorization') || ''}}});
-    const {data:{user},error} = await caller.auth.getUser();
-    if (error || !user) return json({error:'Sign in again.'},401);
-    const {data: profile,error: authError} = await caller.from('profiles').select('id').eq('id',user.id).maybeSingle();
-    if (!profile || authError) return json({error:'An active creator session is required.'},403);
-    const {action} = await req.json();
-    if (!['status','connect','checkout'].includes(action)) return json({error:'Unknown action'},400);
+    const body = await req.json();
+    const {action} = body;
+    const intake = action === 'intake-prices' || action === 'intake-checkout';
     const admin = createClient(url,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-    const excluded = await admin.from('creator_payout_exclusions').select('creator_id').eq('creator_id',user.id).maybeSingle();
+    let creatorId: string;
+    let demoEmail = false;
+    if (intake) {
+      if (!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(body.ticket || ''))
+        return json({error:'Open your personal setup link.'},400);
+      if (action === 'intake-checkout' && !['week','year','once'].includes(body.plan))
+        return json({error:'Choose a coaching plan.'},400);
+      const record = await admin.from('coach_client_intake').select('creator_id')
+        .eq('invite',body.ticket).not('completed_at','is',null)
+        .gte('issued_at',new Date(Date.now()-48*3600000).toISOString()).maybeSingle();
+      if (record.error) throw record.error;
+      if (!record.data) return json({error:'Text your coach for a new checkout link.'},403);
+      creatorId = record.data.creator_id;
+      const owner = await admin.auth.admin.getUserById(creatorId);
+      if (owner.error) throw owner.error;
+      demoEmail = owner.data.user.email?.toLowerCase() === 'meetaka813@gmail.com';
+    } else {
+      const {data:{user},error} = await caller.auth.getUser();
+      if (error || !user) return json({error:'Sign in again.'},401);
+      const profile = await caller.from('profiles').select('id').eq('id',user.id).maybeSingle();
+      if (!profile.data || profile.error) return json({error:'An active creator session is required.'},403);
+      if (!['status','connect','checkout'].includes(action)) return json({error:'Unknown action'},400);
+      creatorId = user.id;
+      demoEmail = user.email?.toLowerCase()==='meetaka813@gmail.com';
+    }
+    async function pricing(){
+      const price=await admin.from('coach_pricing').select('weekly_cents,annual_cents').eq('creator_id',creatorId).maybeSingle();
+      if (price.error) throw price.error;
+      const reference=price.data?.annual_cents ?? 38352;
+      return {week:price.data?.weekly_cents ?? 799,year:Math.round(reference/12),once:23000,reference};
+    }
+    const excluded = await admin.from('creator_payout_exclusions').select('creator_id').eq('creator_id',creatorId).maybeSingle();
     if (excluded.error) throw excluded.error;
     function unavailable(state:string, message:string) {
       return action==='status' ? json({state,total:0,clients:0,payments:[],payouts:[]}) : json({error:message},409);
     }
-    if (excluded.data || user.email?.toLowerCase()==='meetaka813@gmail.com')
+    if (action === 'intake-prices' && (excluded.data || demoEmail))
+      return json({prices:await pricing(),available:false});
+    if (excluded.data || demoEmail)
       return unavailable('demo','Live payments are disabled for this demo account.');
     const key = Deno.env.get('STRIPE_SECRET_KEY');
     const live = key?.startsWith('sk_live_') || key?.startsWith('rk_live_');
+    if (action==='intake-prices' && !live) return json({prices:await pricing(),available:false});
     if (!live) return unavailable('setup','Coachline live payments setup is pending.');
-    const lookup = () => admin.from('creator_stripe_accounts').select('account_id').eq('creator_id',user.id).eq('live',true).maybeSingle();
+    const lookup = () => admin.from('creator_stripe_accounts').select('account_id').eq('creator_id',creatorId).eq('live',true).maybeSingle();
     const mapping = await lookup();
     if (mapping.error) throw mapping.error;
     let account = mapping.data?.account_id;
@@ -41,22 +72,24 @@ Deno.serve(async req => {
     }
     if (!account && action==='connect') {
       const created = await stripe('accounts',{
-        type:'express',country:'US','metadata[creator_id]':user.id,
+        type:'express',country:'US','metadata[creator_id]':creatorId,
         'capabilities[card_payments][requested]':'true','capabilities[transfers][requested]':'true',
         'settings[payouts][schedule][interval]':'monthly','settings[payouts][schedule][monthly_anchor]':'15'
-      },{'Idempotency-Key':'coachline-us-express-'+user.id});
-      const saved = await admin.from('creator_stripe_accounts').upsert({creator_id:user.id,live:true,account_id:created.id},{onConflict:'creator_id,live',ignoreDuplicates:true});
+      },{'Idempotency-Key':'coachline-us-express-'+creatorId});
+      const saved = await admin.from('creator_stripe_accounts').upsert({creator_id:creatorId,live:true,account_id:created.id},{onConflict:'creator_id,live',ignoreDuplicates:true});
       if (saved.error) throw saved.error;
       const current = await lookup();
       if (!current.data) throw Error('Account mapping unavailable');
       account = current.data.account_id;
     }
+    if (action==='intake-prices' && !account) return json({prices:await pricing(),available:false});
     if (!account) return unavailable('unconnected','Set up Stripe payouts first.');
     const acct = await stripe('accounts/'+account);
     const schedule = acct.settings?.payouts?.schedule;
     const verified = acct.charges_enabled && acct.payouts_enabled && acct.capabilities?.transfers==='active';
     const monthly = schedule?.interval==='monthly' && schedule.monthly_anchor===15;
     const ready = verified && monthly;
+    if (action==='intake-prices') return json({prices:await pricing(),available:Boolean(ready)});
     if (action==='connect') {
       const back = site+'/dashboard.html#settings/payments';
       if (!monthly) await stripe('accounts/'+account,{'settings[payouts][schedule][interval]':'monthly','settings[payouts][schedule][monthly_anchor]':'15'});
@@ -64,25 +97,22 @@ Deno.serve(async req => {
         await stripe('account_links',{account,return_url:back,refresh_url:back,type:'account_onboarding'});
       return json({url:link.url});
     }
-    if (!ready && (action==='checkout' || !acct.details_submitted)) return unavailable('onboarding','Finish setting up Stripe payouts first.');
-    if (action==='checkout') {
-      const price=await caller.from('coach_pricing').select('weekly_cents,annual_cents,one_time_cents').eq('creator_id',user.id).maybeSingle();
-      if (price.error) throw price.error;
-      const weekly = price.data?.weekly_cents ?? 399;
-      const annual = price.data?.annual_cents ?? 14600;
+    if (!ready && (action==='checkout' || action==='intake-checkout' || !acct.details_submitted)) return unavailable('onboarding','Finish setting up Stripe payouts first.');
+    if (action==='checkout' || action==='intake-checkout') {
+      const {week:weekly,year:annual,once:single,reference}=await pricing();
       async function checkout(interval: 'week' | 'year' | 'once', cents: number) {
         const session = await stripe('checkout/sessions', {
           mode: interval === 'once' ? 'payment' : 'subscription',
           ...(interval === 'once' ? {
             'invoice_creation[enabled]':'true',
-            'invoice_creation[invoice_data][metadata][creator_id]':user!.id,
+            'invoice_creation[invoice_data][metadata][creator_id]':creatorId,
             'invoice_creation[invoice_data][metadata][coachline_plan]':'one_time',
             'customer_creation':'always',
             'payment_intent_data[transfer_data][destination]':account,
             'payment_intent_data[transfer_data][amount]':String(Math.round(cents*0.8))
           } : {
             'line_items[0][price_data][recurring][interval]':interval,
-            'subscription_data[metadata][creator_id]':user!.id,
+            'subscription_data[metadata][creator_id]':creatorId,
             'subscription_data[transfer_data][destination]':account,
             'subscription_data[transfer_data][amount_percent]':'80'
           }) as Record<string,string>,
@@ -90,15 +120,25 @@ Deno.serve(async req => {
           'line_items[0][price_data][currency]': 'usd',
           'line_items[0][price_data][unit_amount]': String(cents),
           'line_items[0][price_data][product_data][name]': 'AI coaching',
-          'metadata[creator_id]': user!.id,
+          'metadata[creator_id]': creatorId,
+          'metadata[coachline_plan]': interval,
+          ...(intake?{'client_reference_id':clientRef}:{}),
           success_url: site + '/',
-          cancel_url: site + '/'
-        });
+          cancel_url: intake ? site + '/plans.html' : site + '/'
+        }, intake ? {'Idempotency-Key':'coachline-intake-'+clientRef+'-'+interval+'-'+cents+'-'+Math.floor(Date.now()/86400000)} : {});
         return session.url as string;
       }
-      const single = price.data?.one_time_cents ?? 23000;
+      // Use an opaque billing reference. The private setup link stays in the client.
+      const digest = intake ? await crypto.subtle.digest('SHA-256',new TextEncoder().encode('billing:'+body.ticket)) : null;
+      const clientRef = digest ? Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('') : '';
+      if (intake) {
+        const plan = body.plan as 'week'|'year'|'once';
+        const cents = {week:weekly,year:annual,once:single}[plan];
+        if (cents!==body.expectedCents) return json({error:'Your coach updated pricing. Review the new price.',changed:true},409);
+        return json({url:await checkout(plan,cents)});
+      }
       const [week, year, once] = await Promise.all([checkout('week', weekly), checkout('year', annual), checkout('once', single)]);
-      const offer = new URLSearchParams({week, year, once, annual:String(annual), single:String(single), cents: String(weekly)});
+      const offer = new URLSearchParams({week, year, once, annual:String(annual), single:String(single), reference:String(reference), cents: String(weekly)});
       return json({url: site + '/plans.html#' + offer});
 
     }
@@ -116,7 +156,7 @@ Deno.serve(async req => {
       list('invoices?expand[]=data.charge.transfer'), list('subscriptions?status=active'), list('payouts',true)
     ]);
     const payments = invoices.filter(i => i.currency === 'usd' &&
-      (i.subscription_details?.metadata?.creator_id === user.id || (i.metadata?.coachline_plan === 'one_time' && i.metadata.creator_id === user.id)) && i.charge && typeof i.charge === 'object')
+      (i.subscription_details?.metadata?.creator_id === creatorId || (i.metadata?.coachline_plan === 'one_time' && i.metadata.creator_id === creatorId)) && i.charge && typeof i.charge === 'object')
       .map(i => {
         const charge = i.charge;
         const paid = charge.amount_captured;
@@ -127,7 +167,7 @@ Deno.serve(async req => {
           paid,refunded,earnings:charge.transfer?.destination===account ? charge.transfer.amount-charge.transfer.amount_reversed : 0};
       });
     return json({state:ready?'connected':'onboarding',live,
-      clients:new Set(subscriptions.filter(s=>s.metadata?.creator_id===user.id).map(s=>s.customer)).size,
+      clients:new Set(subscriptions.filter(s=>s.metadata?.creator_id===creatorId).map(s=>s.customer)).size,
       total:payments.reduce((n,p)=>n+p.earnings,0),
       entries:payments.map(p=>({date:p.date,net:p.earnings})), payments,payouts:payouts.filter(p=>p.currency==='usd').map(p=>({id:p.id,date:day(p.arrival_date),amount:p.amount,status:({paid:'Deposited',in_transit:'On the way',pending:'Scheduled',failed:'Failed',canceled:'Canceled'} as Record<string,string>)[p.status] || p.status}))});
   } catch (err) {

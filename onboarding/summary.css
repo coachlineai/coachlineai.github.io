@@ -1,0 +1,21 @@
+.fields.summary{display:grid;gap:18px;margin:0;padding:10px 0 22px}
+.summary section,.summary .plan-preview{padding:22px;border-radius:20px;background:#f5f4f9}
+.summary h2,.setup-progress h2{margin:0 0 14px;letter-spacing:-.035em;line-height:1.16}
+.summary h2{font-size:1.2rem}.summary h3{font-size:1rem;margin:18px 0 3px}
+.summary p{margin-bottom:0}.summary dl{display:grid;grid-template-columns:minmax(95px,1fr) 1.5fr;gap:10px 15px;margin:0}
+.summary dd{margin:0;text-align:right;font-weight:600;overflow-wrap:anywhere}.summary dt{color:#635e70}
+.nutrition-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.nutrition-grid div{border-radius:12px;background:white;padding:10px;display:grid;gap:4px}
+.nutrition-grid div:first-child{grid-column:1/-1;font-size:1.5rem}.nutrition-grid small{font-size:.82rem}
+.summary details{margin-top:12px;font-size:.9rem}.summary summary{cursor:pointer}
+.setup-progress{text-align:center;padding:26px 0}.setup-progress output{display:block;font-size:clamp(55px,12vw,88px);letter-spacing:-.065em;font-weight:750;font-variant-numeric:tabular-nums}
+.setup-progress progress{width:100%;height:10px;border:0;border-radius:8px;overflow:hidden;background:#e9e7ee;margin:20px 0;color:#7260dc}
+.setup-progress progress::-webkit-progress-bar{background:#e9e7ee}.setup-progress progress::-webkit-progress-value{background:linear-gradient(90deg,#bc86ab,#7366e7)}.setup-progress progress::-moz-progress-bar{background:#7366e7}
+@media(prefers-reduced-motion:no-preference){
+ .trend svg path[stroke-width],.plan-preview svg path[stroke-width]{stroke-dasharray:1;stroke-dashoffset:0;animation:trace .95s ease-out both}
+ .plan-preview svg circle,.trend svg circle{transform-box:fill-box;transform-origin:center;animation:arrive .4s .55s both}
+ .fields .features li,.fields .summary,.summary section,.fields .animals,.fields .ruler,.fields .wheels,.fields .plan-preview,.fields .trend{animation:arrive .42s ease-out both}
+ .features li:nth-child(2),.summary section:nth-child(2){animation-delay:90ms}.features li:nth-child(3),.summary section:nth-child(3){animation-delay:150ms}
+ @keyframes trace{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+ @keyframes arrive{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+}

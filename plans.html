@@ -1,54 +1,23 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="referrer" content="no-referrer">
-  <title>Choose your coaching plan | Coachline</title>
-  <style>
-    * { box-sizing: border-box }
-    body { margin: 0; color: #211d43; background: #f7f7ff; font: 1rem/1.5 system-ui,sans-serif }
-    main { max-width: 32rem; margin: 10vh auto; padding: 1.5rem }
-    h1 { line-height: 1.15 }
-    a { display: block; margin: 1rem 0; padding: 1.25rem; border: 1px solid #cbc7e4; border-radius: 1rem; background: white; color: inherit; text-decoration: none }
-    [hidden] { display: none }
-    a:hover, a:focus-visible { outline: 2px solid #5745cd }
-    strong, span { display: block }
-    strong { font-size: 1.25rem }
-    span { color: #55516b }
-  </style>
-</head>
-<body><main>
-  <p>Coachline</p><h1>Choose your coaching plan</h1>
-  <p id="message">Open the checkout link from your coach to see your plans.</p>
-  <section id="plans" hidden>
-    <a id="week"><strong>Weekly coaching</strong><span></span></a>
-    <a id="year"><strong>Yearly coaching</strong><span></span></a>
-    <a id="once" hidden><strong>One-time coaching</strong><span></span></a>
-  </section>
-</main>
-<script>
-  const offer = new URLSearchParams(location.hash.slice(1));
-  const cents = Number(offer.get('cents'));
-  const extended = offer.has('once');
-  const amounts = {week:cents, year:extended ? Number(offer.get('annual')) : Math.round(cents * 52 * .65), once:Number(offer.get('single'))};
-  const intervals = extended ? ['week','year','once'] : ['week','year'];
-  function stripeCheckout(value) {
-    try {
-      const url = new URL(value);
-      return url.origin === 'https://checkout.stripe.com' && url.pathname.startsWith('/c/pay/');
-    } catch { return false; }
-  }
-  if (Number.isSafeInteger(cents) && cents >= 50 && cents <= 100000 &&
-      intervals.every(interval => Number.isSafeInteger(amounts[interval]) && amounts[interval] >= 50 && stripeCheckout(offer.get(interval)))) {
-    for (const interval of intervals) {
-      const link = document.getElementById(interval);
-      const amount = amounts[interval];
-      link.hidden = false;
-      link.href = offer.get(interval);
-      link.querySelector('span').textContent = '$' + (amount / 100).toFixed(2) + (interval === 'once' ? ' billed once' : ' billed every ' + interval);
-    }
-    document.getElementById('message').textContent = 'Choose a plan to continue to Stripe.';
-    document.getElementById('plans').hidden = false;
-  }
-</script></body></html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="referrer" content="no-referrer"><title>Choose your coaching plan · Coachline</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f4f8;color:#211e29;font:16px/1.45 Inter,system-ui,sans-serif}
+main{max-width:620px;margin:24px auto;background:#fff;border:1px solid #e4e1ea;border-radius:26px;overflow:hidden}
+.hero{position:relative}.hero img{display:block;width:100%;aspect-ratio:2/1;object-fit:cover}.hero:after{content:"";position:absolute;inset:65% 0 -1px;background:linear-gradient(transparent,white)}
+header,.body{padding:0 clamp(18px,5vw,40px)}header{text-align:center}h1{font-size:clamp(32px,6vw,46px);letter-spacing:-.055em;line-height:1.03;margin:10px 0 12px}header p{color:#655e70;margin:0 0 24px}
+fieldset{border:0;padding:0;margin:0;display:grid;gap:12px}.card{border:1.5px solid #dedbe5;border-radius:16px;overflow:hidden}.card:has(:checked){border-color:#30273d;box-shadow:inset 0 0 0 1px #30273d}
+.card label{display:grid;align-items:center;grid-template-columns:22px 1fr auto;gap:12px;cursor:pointer;padding:16px}
+input{width:20px;height:20px;accent-color:#604ada;margin:0}strong,small{display:block}small{font-size:.83rem;color:#625a6b}.amount{text-align:right;font-size:1.1rem;letter-spacing:-.035em}
+.highlight{border-color:#b0a4eb;background:#faf8ff}.ribbon{padding:6px;text-align:center;background:#463293;color:white;font-weight:650;font-size:.79rem}.discount{display:inline-block;color:#5140a0;font-weight:700}
+details{padding:0 16px 10px 50px;font-size:.86rem}summary{cursor:pointer;color:#514875;width:max-content;padding:5px 0}
+ul{list-style:none;padding:0;margin:8px 0}li{margin:5px 0}li span{color:#28764e;margin-right:7px}li.excluded,li.excluded span{color:#696273}
+footer{margin-top:16px;padding:12px clamp(18px,5vw,40px) max(18px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid #ebe8ef;position:sticky;bottom:0;text-align:center}
+button{font:inherit;cursor:pointer}#pay{width:100%;padding:14px 10px;border:0;background:#211d29;color:#fff;font-weight:680;border-radius:40px}#pay:disabled{background:#e3e0e9;color:#625a6b;cursor:default}footer p{color:#625a6b;font-size:.84rem;margin:8px 0 0}#notice{margin:10px 0;color:#4c4260}#notice:empty{display:none}a{color:#503cab}button:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid #8372db;outline-offset:2px}
+@media(max-width:640px){body{background:white}main{margin:0;border:0;border-radius:0;overflow:visible}}
+@media(prefers-reduced-motion:no-preference){.hero img,.card{animation:reveal .42s ease-out both}.card:nth-child(2){animation-delay:75ms}.card:nth-child(3){animation-delay:130ms}@keyframes reveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}}
+</style></head>
+<body><main><div class="hero"><img src="./assets/scan-coaching.webp" width="1080" height="540" alt="Using a phone to scan a meal and a barbell squat rack"></div>
+<header><h1>Choose your coaching plan</h1><p>Meal scans, workout guidance and your AI coach in Messages.</p></header>
+<section class="body"><fieldset aria-label="Coaching plans" id="plans"></fieldset><p id="notice" role="status"></p><a id="messages" href="sms:+16177106179" hidden>Return to Messages</a> <a id="retry" href="" hidden>Reload prices</a></section>
+<footer><button id="pay" disabled>Continue to Stripe</button><p id="terms" aria-live="polite"></p></footer></main>
+<script type="module" src="./plans.js"></script></body></html>
