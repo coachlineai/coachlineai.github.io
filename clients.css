@@ -44,3 +44,4 @@
 .client-stats {grid-template-columns:1fr 1fr}
 .client-stats>div:last-child {grid-column:span 2}
 }
+.client-table-scroll{overflow-x:auto;margin-top:14px}.registered-clients{width:100%;border-collapse:collapse;text-align:left}.registered-clients th,.registered-clients td{padding:12px 9px;border-bottom:1px solid #eae8f0;vertical-align:top}.registered-clients thead th{color:#655e75;font-size:.83rem}.registered-clients button{white-space:nowrap}.client-file{display:block;width:100%;margin-top:12px;border:0}.client-file:is(iframe){height:65vh}.client-file:is(img){max-height:65vh;object-fit:contain}

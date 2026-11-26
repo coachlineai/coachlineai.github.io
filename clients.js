@@ -1,3 +1,4 @@
+import {liveRoster,leaveRoster} from './client-roster.js';
 import { escapeHtml as e } from './profile-render.js';
 
 const periods = ['Morning','Afternoon','Evening'];
@@ -17,6 +18,7 @@ const fixtures = [
     meals:[meal('Eggs and bacon','Morning'),meal('Rice bowl','Afternoon')]}
 ];
 let sample = false;
+let currentOwner;
 let clients = [];
 let query = '', filter = '', sort = 'reply';
 const root = () => document.querySelector('#clients-view');
@@ -44,7 +46,7 @@ function roster() {
   get('#roster-search').oninput = ev=>{query=ev.target.value;rosterRows();};
   get('#roster-filter').onchange = ev=>{filter=ev.target.value;rosterRows();};
   get('#roster-sort').onchange = ev=>{sort=ev.target.value;rosterRows();};
-  get('[data-act=toggle]').onclick=()=>{sample=!sample;clients=sample?structuredClone(fixtures):[];query=filter='';roster();};
+  get('[data-act=toggle]').onclick=()=>{sample=false;clients=[];query=filter='';showClients(currentOwner);};
   rosterRows();
 }
 function detail(c) {
@@ -94,7 +96,10 @@ function editItem(c, kind, index) {
     get(isExercise?'[data-act=preview]':'[data-meal="'+index+'"]')?.focus();
   };
 }
-export function showClients(){
+export function showClients(owner){
+  if(owner!==currentOwner){sample=false;clients=[];currentOwner=owner;}
+  if(!sample){liveRoster(owner,()=>{leaveRoster();sample=true;clients=structuredClone(fixtures);roster();});return;}
+
   const id=location.hash.split('/')[1];
   const c=clients.find(person=>person.id===id);
   if(c)detail(c);else roster();
@@ -102,3 +107,7 @@ export function showClients(){
   heading.tabIndex = -1;
   heading.focus({preventScroll:true});
 }
+
+window.addEventListener('focus',()=>{
+  if(currentOwner && !sample && location.hash==='#clients' && !document.querySelector('dialog[open]'))showClients(currentOwner);
+});

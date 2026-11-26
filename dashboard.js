@@ -5,7 +5,7 @@ import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supab
 import { initCoach } from './coach.js?v=phonepilot2';
 import {initBilling} from './billing.js?v=planoffer1';
 import { initIncome } from './income.js?v=payout15';
-import { showClients } from './clients.js';
+import { showClients } from './clients.js?v=registry1';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}
 function renderMessageCard(rawPhone) {
@@ -48,7 +48,7 @@ function routeDashboard() {
     playbook ??= import('./playbook.js?v=delete1').then(module => module.initPlaybook(db,user.id)).catch(() => {playbook=null; $('#pb-status').textContent='Could not load Playbook. Reopen it to retry.';});
   }
   if (view === 'settings') showSettingsTab(location.hash.split('/')[1]);
-  if (view === 'clients') showClients();
+  if (view === 'clients') showClients(user.id);
   document.body.classList.remove('menu-open');
   $('#menu').setAttribute('aria-expanded', 'false');
   window.scrollTo(0, 0);
