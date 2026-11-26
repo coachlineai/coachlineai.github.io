@@ -447,6 +447,15 @@ function render(){
 }
 const endpoint='https://kvpngwwaemdjwchslcov.supabase.co/rest/v1/rpc/';
 const headers={'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'};
+async function attachPageClick(){
+ if(!ticket)return;
+ try{
+  const click=localStorage.getItem('coachline-last-page-click');
+  if(!click)return;
+  await fetch(endpoint+'attach_creator_page_click',{method:'POST',headers,body:JSON.stringify({ticket,click_id:click}),keepalive:true});
+ }catch{/* A setup link also works when opened on another device. */}
+}
+void attachPageClick();
 const ageDialog=document.querySelector('dialog');
 ageDialog.querySelector('button').onclick=()=>ageDialog.close();
 ageDialog.onclose=()=>{if(blocked)location.reload()};
@@ -492,6 +501,7 @@ async function finishSetup(){
    if(!ticket)return;
  const response=await fetch(endpoint+'finish_coach_intake',{method:'POST',headers,body:JSON.stringify({ticket,client_name:answers[0].trim(),client_sex:answers[1],weekly:answers[2],dob:answers[3],referral:answers[4],calorie_apps:answers[5]==='Yes',fitness_apps:answers[6]==='Yes',height:+heightCm.toFixed(3),weight:+weightKg.toFixed(5),has_trainer:answers[10]==='Yes',goal:answers[11],target_kg:isChangeGoal()?+desiredKg.toFixed(5):null,weekly_lb:isChangeGoal()?paceLb:null,barrier:answers[16],styles:[...selections.workouts],session_length:answers[18],allergies:[...selections.allergies],other_food:selections.allergies.has('Other food allergy')?otherAllergy.trim():null,motivation:answers[20]})});
  if(!response.ok||await response.json()!==true)throw Error();
+ void attachPageClick();
   });
   back.disabled=false;btn.hidden=false;showSummary();
  }catch{
