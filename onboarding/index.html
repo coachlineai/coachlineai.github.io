@@ -34,7 +34,7 @@ h1 em,.estimate em{color:#6452c7;font-style:normal}.confetti{position:fixed;inse
 @media(min-width:440px){.preference-list{grid-template-columns:1fr 1fr}}
 </style>
 <main><header><b aria-hidden="true">✦</b> Coachline</header><nav aria-label="Onboarding progress"><button class="back" type="button" aria-label="Previous step">←</button><div class="track"><div class="fill"></div></div><small id="step"></small></nav><form><h1 tabindex="-1"></h1><p id="hint"></p><div class="fields"></div><footer><span role="status" id="status"></span><button class="next">Continue</button><a class="return" hidden href="sms:+16177106179">Return to Messages</a></footer></form></main>
-<dialog aria-labelledby="age-title" aria-describedby="age-description"><h2 id="age-title">Coachline is for ages 13 and up</h2><p id="age-description">You can start coaching once you turn 13.</p><button class="next" type="button" autofocus>OK</button></dialog>
+<dialog aria-labelledby="age-title" aria-describedby="age-description"><h2 id="age-title">Coachline is for ages 13 and up</h2><p id="age-description">You can start coaching once you turn 13. If you entered the wrong birthday, tap OK to start again.</p><button class="next" type="button" autofocus>OK</button></dialog>
 <script type="module">
 import {prepareSummary,renderSummary} from './summary.js';
 const $=s=>document.querySelector(s);
@@ -89,7 +89,8 @@ function wheel(label,items,selected,onChange){
   if(e.key in keys){e.preventDefault();move(keys[e.key])}
  };
  set(selected,false);
- return {el,position(){el.scrollTop=selected*44;el.onscroll=()=>set(clamp(Math.round(el.scrollTop/44),0,items.length-1),true)}};
+ function centered(){return clamp(Math.round(el.scrollTop/44),0,items.length-1)}
+ return {el,centered,position(){el.scrollTop=selected*44;el.onscroll=()=>{if(el.isConnected)set(centered(),true)}}};
 }
 function birthday(fields){
  const group=document.createElement('div');group.className='wheels';fields.append(group);
@@ -103,13 +104,22 @@ function birthday(fields){
  function days(){
   const total=new Date(dob.year||2000,dob.month||1,0).getDate();if(total===dayCount)return;dayCount=total;dob.day=Math.min(dob.day,total);
   const control=wheel('Day',['Day',...range(1,total)],dob.day,i=>{dob.day=i;sync()});
-  if(dayWheel)dayWheel.replaceWith(control.el);else group.append(control.el);
-  dayWheel=control.el;control.position();
+  if(dayWheel)dayWheel.el.replaceWith(control.el);else group.append(control.el);
+  dayWheel=control;control.position();
  }
  const month=wheel('Month',['Month',...range(0,11).map(i=>new Date(2000,i,1).toLocaleString('en-US',{month:'long'}))],dob.month,i=>{dob.month=i;days();sync()});
  const years=[0,...range(1900,new Date().getFullYear()).reverse()];
  const year=wheel('Year',years.map(y=>y||'Year'),years.indexOf(dob.year),i=>{dob.year=years[i];days();sync()});
  group.append(month.el);days();group.append(year.el);month.position();year.position();sync();
+ return ()=>{
+  // Touch momentum can move the centered row before its scroll event runs.
+  dob.year=years[year.centered()];dob.month=month.centered();
+  dob.day=Math.min(dayWheel.centered(),new Date(dob.year||2000,dob.month||1,0).getDate());
+  sync();
+  // Detach moving wheels so late scroll events cannot change the submitted DOB.
+  fields.replaceChildren();commitBirthday=birthday(fields);
+  return answers[3];
+ };
 }
 function toggle(fields,key,choices,draw){
  const bar=document.createElement('div');bar.className='units';bar.setAttribute('role','group');bar.setAttribute('aria-label',key+' units');
@@ -387,7 +397,7 @@ const steps=[
  ['What would you most like to accomplish?','Choose what matters most to you day to day.',motivations.map((v,i)=>[v,['🥗','☀️','💪','🧘'][i]] )],
  ['Your plan preview','',[]]
 ];
-const answers=['','','','','','','','continue','height','weight','','','','confirm','pace','features','','','','','','preview'];let index=0,busy=false,blocked=false;
+const answers=['','','','','','','','continue','height','weight','','','','confirm','pace','features','','','','','','preview'];let index=0,busy=false,blocked=false,commitBirthday;
 function fadeInStep() {
  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
  for (const element of document.querySelectorAll('form > h1, #hint, .fields.name:not([hidden]), .fields > .wheels, .fields > .units, .fields > .trend, .fields > .weight, .fields > .pace, .fields > .features, .return:not([hidden])')) {
@@ -414,7 +424,7 @@ function render(){
  const fields=$('.fields');fields.replaceChildren();fields.classList.toggle('name',index===0);
  if(index===0){fields.innerHTML='<label>Your name<input name="name" autocomplete="given-name" maxlength="60" placeholder="First name or nickname"></label>';const input=fields.querySelector('input');input.value=answers[0];input.oninput=()=>{answers[0]=input.value;$('form .next').disabled=!input.value.trim()};}
  fields.classList.toggle('referrals',index===4);
- if(index===3)birthday(fields);
+ if(index===3)commitBirthday=birthday(fields);
  if(index===7)trend(fields);
  if(index===8)heightPicker(fields);
  if(index===9)weightPicker(fields);
@@ -439,22 +449,20 @@ const endpoint='https://kvpngwwaemdjwchslcov.supabase.co/rest/v1/rpc/';
 const headers={'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'};
 const ageDialog=document.querySelector('dialog');
 ageDialog.querySelector('button').onclick=()=>ageDialog.close();
-ageDialog.onclose=()=>{if(blocked){
- $('nav').hidden=$('.fields').hidden=$('form .next').hidden=true;
- $('h1').textContent='Come back when you’re 13.';$('#hint').textContent='You must be at least 13 to use Coachline.';$('#status').textContent='';$('h1').focus();
-}};
+ageDialog.onclose=()=>{if(blocked)location.reload()};
 $('.back').onclick=()=>{if(index && !busy){const path=route();index=path[path.indexOf(index)-1];render();$('h1').focus()}};
 $('form').onsubmit=async event=>{
  event.preventDefault();
  if(reviewing){location.assign('../plans.html#'+(ticket?'intake='+encodeURIComponent(ticket):'preview'));return;}
- if(blocked||busy||!answers[index].trim())return;
+ if(blocked||busy)return;
  if(index===3){
-  if(answers[3]>localToday())return;
-  let allowed=oldEnough(answers[3],localToday());
+  const birth=commitBirthday(),today=localToday();
+  if(!birth||birth>today)return;
+  let allowed=oldEnough(birth,today);
   if(ticket){
    busy=true;$('.fields').inert=true;$('form .next').disabled=$('.back').disabled=true;
    try{
-    const r=await fetch(endpoint+'check_coach_intake_age',{method:'POST',headers,body:JSON.stringify({ticket,dob:answers[3]})});
+    const r=await fetch(endpoint+'check_coach_intake_age',{method:'POST',headers,body:JSON.stringify({ticket,dob:birth})});
     if(!r.ok)throw Error();
     const result=await r.json();
     if(result!=='eligible'&&result!=='underage')throw Error();
@@ -467,6 +475,7 @@ $('form').onsubmit=async event=>{
    return;
   }
  }
+ if(!answers[index].trim())return;
  if(index<steps.length-1){
   if(index<=10 && answers[11] && !availableGoals().some(([value])=>value===answers[11])){
    answers[11]=answers[12]='';desiredKg=null;
