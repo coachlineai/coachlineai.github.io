@@ -11,7 +11,7 @@ if(ticket||offer){
 }
 let prices, available=false, selected='once';
 const currency=cents=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
-const titles={year:'Annual coaching',week:'Weekly coaching',once:'Lifetime training'};
+const titles={year:'Annual coaching',week:'Weekly coaching',once:'One-time payment'};
 function checkoutUrl(value){
   try{const url=new URL(value);return url.origin==='https://checkout.stripe.com' && url.pathname.startsWith('/c/pay/') ? url.href : null;}catch{return null;}
 }
@@ -35,19 +35,23 @@ function draw(){
   for(const id of ['once','year','week']){
     const amount=prices[id];if(!Number.isInteger(amount)||amount<50)continue;
     const card=document.createElement('div');card.className='card'+(id==='once'?' highlight':'');
-    card.innerHTML=(id==='once'?'<div class="ribbon">Lifetime access · One payment</div>':'')+
+    const launch=id==='once' && !legacy && amount===9999;
+    const remaining=Number.isInteger(prices.remaining)?' · '+prices.remaining+' left':'';
+    card.innerHTML=(launch?'<div class="ribbon">Launch offer · First 5 buyers'+remaining+'</div>':'')+
       '<label><input type="radio" name="plan"><span><strong></strong><small class="caption"></small></span><b class="amount"></b></label><details><summary>Plan details</summary><ul></ul></details>';
     card.querySelector('strong').textContent=titles[id];
     const caption=card.querySelector('.caption');
-    caption.textContent=id==='once'?'Pay once':id==='week'?currency(amount*4)+' over four weeks':'A full year of meal scans, workouts, and coach messaging.';
+    caption.textContent=id==='once'?'Lifetime access to your AI coach.':id==='week'?currency(amount*4)+' over four weeks':'A full year of meal scans, workouts, and coach messaging.';
     const price=card.querySelector('.amount');
     price.textContent=currency(amount)+(id==='week'?' / wk':id==='year'?' / yr':'');
-    if(id==='year' && Number.isInteger(prices.reference) && Math.round(prices.reference/12)===amount){
-      card.classList.add('annual-offer');
-      const regular=document.createElement('s');regular.textContent=currency(prices.reference);
-      regular.setAttribute('aria-label','Annual reference price '+currency(prices.reference));
+    const annualDiscount=id==='year' && Number.isInteger(prices.reference) && Math.round(prices.reference/12)===amount;
+    if(launch || annualDiscount){
+      const reference=launch?12000:prices.reference;
+      card.classList.add('discounted-plan');
+      const regular=document.createElement('s');regular.textContent=currency(reference);
+      regular.setAttribute('aria-label','Regular price '+currency(reference));
       const current=document.createElement('span');current.textContent=price.textContent;
-      const discount=document.createElement('small');discount.className='discount';discount.textContent='91.67% off';
+      const discount=document.createElement('small');discount.className='discount';discount.textContent=launch?'Save '+currency(reference-amount):'91.67% off';
       price.replaceChildren(regular,current,discount);
     }
     const radio=card.querySelector('input');radio.value=id;radio.checked=id===selected;
@@ -61,21 +65,6 @@ function draw(){
       if(excluded){li.className='excluded';li.append(' · Excluded');}
       else if(calling)li.append(' · When calling launches');
       list.append(li);
-    }
-    // Make the calling availability visible before expanding the details.
-    if(id==='once'){
-      caption.textContent='Train with your AI coach for life.';
-      if(!legacy){
-        const offerInfo=document.createElement('div');offerInfo.className='launch-pricing';
-        const early=amount===9999;
-        const availability=early && Number.isInteger(prices.remaining)?' · '+prices.remaining+' left':'';
-        offerInfo.innerHTML='<div class="tier"><b>$99.99</b><small></small></div><div class="tier"><b>$120</b><small>Regular lifetime price</small></div>';
-        const [launch,regular]=offerInfo.children;
-        launch.querySelector('small').textContent=early?'First 5 buyers'+availability:'First 5 · Sold out';
-        (early?launch:regular).classList.add('current');
-        if(!early)launch.classList.add('sold-out');
-        card.querySelector('details').before(offerInfo);
-      }
     }
     plans.append(card);
   }
