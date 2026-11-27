@@ -17,11 +17,11 @@ export async function currentPlans(db:Database,id:string){
   const [meal,workout,allergies]=await Promise.all(['meal','workout','allergies'].map(latest));
   return {meal,workout,allergies};
 }
-export async function generate(parts:any[],instruction:string,schema:any){
+export async function generate(parts:any[],instruction:string,schema:any,timeoutMs=30000){
   const model=encodeURIComponent(Deno.env.get('GEMINI_MODEL')||'gemini-3.1-flash-lite');
   const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent',{
     method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':Deno.env.get('GEMINI_API_KEY')!},
-    signal:AbortSignal.timeout(30000),body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[{role:'user',parts}],
+    signal:AbortSignal.timeout(timeoutMs),body:JSON.stringify({systemInstruction:{parts:[{text:instruction}]},contents:[{role:'user',parts}],
     generationConfig:{responseMimeType:'application/json',responseSchema:schema,maxOutputTokens:3200}})});
   if(!r.ok)throw Error('Coaching model unavailable');
   const candidate=(await r.json()).candidates?.[0];

@@ -3,7 +3,7 @@ import {createClient} from 'npm:@supabase/supabase-js@2.49.8';
 import {activity,currentPlans,generate,modelProfile,profileFields,read} from './cycle.ts';
 import {trainerInstructions} from './trainer.ts';
 
-type Message={kind:string,body:string};
+type Message={kind:string,body:string,saveOnly?:boolean,withDashboard?:boolean};
 const say=(kind:string,body:string):Message=>({kind,body});
 const db=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
 const textField={type:'STRING'};
@@ -52,11 +52,23 @@ async function makePlans(j:any,c:any,style:any){
   const review=field('review'), meal=needsAllergies?'Before I suggest meals, reply ALLERGIES: followed by the foods you need to avoid, or “none known.”':field('meal'), workout=field('workout');
   const messages:Message[]=[];
   if(j.kind!=='starter'&&review)messages.push(say('review',review));
-  if(j.kind==='starter')messages.push(say('coach',String(c.sex).toLowerCase()==='male'?'What’s up, man? Here’s how we’ll start your week.':'What’s up'+(c.first_name?', '+c.first_name:'')+'? Here’s how we’ll start your week.'));
-  if(meal)messages.push(say(needsAllergies||/^reply allergies:/i.test(meal)?'coach':'meal',meal));
+  const clarify=needsAllergies||/^reply allergies:/i.test(meal);
+  if(j.kind==='starter'){
+    if(!meal||!workout)throw Error('Incomplete plans');
+    if(!clarify)messages.push({kind:'meal',body:meal,saveOnly:true});
+    messages.push({kind:'workout',body:workout,saveOnly:true});
+    const firstDay=(plan:string)=>plan.split(/\b(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday):/i).find((line,index)=>index>0&&line.trim())?.trim().split(/\n/)[0].slice(0,150).trim();
+    const mealPreview=clarify?null:firstDay(meal);
+    const workoutPreview=firstDay(workout);
+    const greeting=c.first_name?'You’re all set, '+c.first_name+'!':'You’re all set!';
+    const summary=[greeting,mealPreview?'First meal idea: '+mealPreview:null,workoutPreview?'First training day: '+workoutPreview:null,
+      clarify?meal:'Your full week is on your dashboard. Does it fit? Text PLAN OK or tell me what you’d change.'];
+    messages.push({kind:'coach',body:summary.filter(Boolean).join('\n'),withDashboard:true});
+    return messages;
+  }
+  if(meal)messages.push(say(clarify?'coach':'meal',meal));
   if(workout)messages.push(say('workout',workout+'\n\nText WORKOUT DONE after each session so I can log your tracker screenshot.'));
-  if((j.kind==='starter'&&(!meal||!workout))||!messages.length)throw Error('Incomplete plans');
-  if(j.kind==='starter')messages.push(say('coach','Does this food and training plan fit your week? Say PLAN OK to go ahead, or tell me what you’d change.'));
+  if(!messages.length)throw Error('Incomplete plans');
   return messages;
 }
 async function messages(j:any,c:any,style:any){
@@ -94,11 +106,21 @@ async function process(j:any){
     coach.phone_line=(await read(db.rpc('pilot_contact_line',{owner_id:c.creator_id,sender:c.phone}))) || coach.phone_line;
     if(!coach.phone_line)throw Error('No messaging line');
     if(!await canSend(c)){await update({state:'queued',lease:null,next_at:new Date(Date.now()+3600000)});return;}
-    const batch:Message[]=j.messages||[...await messages(j,c,coach.published_style),say('dashboard','View your dashboard')];
-    if(!j.messages)await update({messages:batch});
+    const batch:Message[]=j.messages||await messages(j,c,coach.published_style);
+    if(!j.messages){
+      if(!batch.length)batch.push(say('dashboard','View your dashboard'));
+      else batch[batch.length-1].withDashboard=true;
+      await update({messages:batch});
+    }
     for(let i=j.cursor_index;i<batch.length;i++){
       if(!await canSend(c)){await update({state:'queued',lease:null,next_at:new Date(Date.now()+3600000)});return;}
+      if(batch[i].saveOnly){
+        await activity(db,c.client_key,'job:'+j.id+':'+i,batch[i].kind,batch[i].body);
+        await update({cursor_index:i+1});
+        continue;
+      }
       let content=batch[i].body;
+      if(batch[i].withDashboard)content+='\n\nView your dashboard: '+await progressLink(db,c.client_key,'today');
       if(batch[i].kind==='dashboard')content+=': '+await progressLink(db,c.client_key,'today');
       await update({state:'sending'});
       sending=true;

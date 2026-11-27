@@ -183,6 +183,26 @@ Deno.serve(async req => {
   }
 });
 
+function completionText(text:string){
+  return /^(?:done|i(?:['’]m| am) done|i did it|all done|(?:i (?:just )?)?(?:finished|completed|did)(?: (?:the|my))? (?:onboarding|profile|setup)|onboarding (?:done|complete))[.!✅\s]*$/iu.test(text);
+}
+
+async function setupReply(stage:string,intent:string,first:boolean){
+  const setup=stage==='onboarding';
+  const next=setup?'Finish your profile, then choose your plan.':'Your profile is saved. Choose your plan to finish setup.';
+  const fallback=intent==='completion' && setup?'Almost there. Your profile still shows as unfinished. '+next:next;
+  try{
+    // Stage and intent are sufficient. Keep phone, invitation and raw message out of the model request.
+    const result=await generate([{text:JSON.stringify({stage,intent,first})}],
+      'Write a casual, friendly text for Coachline’s AI fitness coach. One or two short sentences. '+
+      (setup?'The profile is unfinished. Ask them to finish their profile and choose a plan.':'The profile is complete and checkout is unfinished. Acknowledge their saved profile and ask them to choose a plan.')+
+      ' On the first greeting introduce yourself as their AI coach. If they say they finished, gently tell them which step still shows as incomplete. No shaming, fitness advice, invented facts, URLs, or instructions to text done. The app adds their link and final instruction.',
+      {type:'OBJECT',properties:{message:{type:'STRING'}},required:['message']},6000);
+    const message=result.message?.trim();
+    return message && message.length<=350 && !/(?:https?:|www\.)/i.test(message)?message:fallback;
+  }catch{return fallback;}
+}
+
 async function handleInbound(req: Request, acknowledge: (number: string, line: string, service: unknown) => Promise<void>, beforeReply: () => Promise<void>) {
   async function sendCoachMessages(number: string, line: string, answer: string, demo: string) {
     await beforeReply();
@@ -246,11 +266,16 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
   if (intake.stage==='wrong_page'||intake.stage==='unavailable')return done();
   if (intake.stage==='duplicate') return done();
   if (intake.stage==='busy') return new Response(null,{status:503});
-  const greeting=!media && /^(hey|hi|hello|yo|what[’']?s up)(?: coach)?[!.? ]*$/i.test(caption);
+  const greeting=!media && /^(hey|hi|hello|yo|what[’']?s up)(?: coach|, [\p{L} '-]{1,50})?[!.? ]*$/iu.test(caption);
   if (intake.stage==='onboarding' || intake.stage==='payment') {
     const row=await db.from('coach_client_intake').select('client_key,coaching_paused').eq('creator_id',pilot.creator_id).eq('phone',sender).single();
     if(row.error)return new Response(null,{status:503});
     if(row.data.coaching_paused)return done();
+    if(greeting && intake.stage==='onboarding'){
+      const claim=await db.rpc('claim_setup_greeting',{owner_id:pilot.creator_id,client:row.data.client_key,inbound_handle:m.message_handle,stage:intake.stage});
+      if(claim.error)return new Response(null,{status:503});
+      if(!claim.data)return done();
+    }
     await acknowledge(sender,pilot.phone_line,m.service);
     if(intake.stage==='payment'){
       try{
@@ -268,20 +293,10 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
     }
     const setup = intake.stage==='onboarding';
     const link = 'https://coachlineai.github.io/' + (setup?'onboarding/#':'plans.html#intake=') + intake.invite;
-    let message: string;
-    if(!media && /^voice (on|yes|off)$/i.test(caption)) message='Your coach replies by text. Here’s your personal link.';
-    else if (intake.first) message = 'Yo! I’m your AI coach. What are we working toward? Tell me in your profile, then pick your plan so we can get to work.';
-    else if (/\b(price|pricing|cost|pay|paid|plans?)\b/i.test(caption)) message = setup
-      ? 'You’ll see the plans and prices after your profile. Start here and pick what works for you.'
-      : 'Your profile is in. Open your personal link to choose a plan. Once payment is confirmed, we can get to work.';
-    else if (/\b(link|help|start|lost)\b/i.test(caption)) message = setup
-      ? 'I’ve got you. Here’s your personal setup link. Finish your profile, then choose your plan.'
-      : 'You’ve already finished your profile. Here’s your link to pick up at checkout.';
-    else message = setup
-      ? 'Let’s put that goal to work. Finish your profile and choose a plan here so I can coach you.'
-      : 'You’ve done the first part. Pick your plan here, then bring that question right back to me.';
+    const intent=!media && completionText(caption)?'completion':greeting?'greeting':/\b(price|pricing|cost|pay|plans?)\b/i.test(caption)?'pricing':/\blink\b/i.test(caption)?'link':'setup';
+    const message=!media && /^voice (on|yes|off)$/i.test(caption)?'Your coach replies by text. Here’s your personal link.':await setupReply(intake.stage,intent,Boolean(intake.first));
     try {
-      await sendCoachMessages(sender,pilot.phone_line,message+'\n\n'+link,'');
+      await sendCoachMessages(sender,pilot.phone_line,message+'\n\n'+link+'\n\nText “done” when you’ve completed onboarding.','');
     } catch {
       await db.from('coach_setup_replies').update({claimed_at:'1970-01-01T00:00:00Z'}).eq('creator_id',pilot.creator_id).eq('handle',m.message_handle);
       return new Response(null,{status:503});
@@ -299,6 +314,31 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
   async function shareDashboard(){
     if(!client.data.coaching_processing_consent_at)return;
     await read(db.from('coaching_jobs').upsert({client_id:client.data.client_key,job_key:'dashboard:'+m.message_handle,kind:'reply',input:{dashboard:true}},{onConflict:'client_id,job_key',ignoreDuplicates:true}));
+  }
+  async function withDashboard(body:string){
+    if(!client.data.coaching_processing_consent_at)return body;
+    try{return body+'\n\nView your dashboard: '+await progressLink(db,client.data.client_key,'today');}
+    catch{return body+'\n\nText MY PLAN for your dashboard.';}
+  }
+  if(!media && completionText(caption)){
+    const claim=await db.rpc('claim_client_phone_turn',{owner_id:pilot.creator_id,sender,inbound_handle:m.message_handle,question_text:caption});
+    if(claim.error||claim.data==='busy')return new Response(null,{status:503});
+    if(claim.data!=='claimed')return done();
+    const starter=await db.from('coaching_jobs').select('state,attempts,next_at').eq('client_id',client.data.client_key).eq('job_key','starter').maybeSingle();
+    const consent=Boolean(client.data.coaching_processing_consent_at);
+    const imminent=Date.parse(starter.data?.next_at) >= Date.now()-120000 && Date.parse(starter.data?.next_at) <= Date.now()+300000;
+    const pending=consent && !starter.error && imminent && starter.data?.attempts<=1 && ['queued','working','sending'].includes(starter.data?.state);
+    const recentSetup=Date.now()-Date.parse(client.data.completed_at)<86400000;
+    const answer=!consent?'You’re all set with onboarding. '+consentCopy:
+      !recentSetup && !/onboarding|setup|profile/i.test(caption)?'Do you mean you finished onboarding or a workout? Your profile is complete. Text WORKOUT DONE to log a session.':
+      starter.data?.state==='done'?'Yep, your onboarding is complete. Your plan is on your dashboard. Want to start with meals or training?':
+      'Yep, your onboarding is complete. Want to talk meals or training first?';
+    try{
+      // Checkout already owns the first plan message while its job is pending.
+      if(!pending)await sendCoachMessages(sender,pilot.phone_line,await withDashboard(answer),'');
+      await read(db.from('coach_phone_turns').update({state:'accepted',answer:pending?'Onboarding confirmed. Starter plan delivery queued.':answer}).eq('handle',m.message_handle));
+    }catch{await db.from('coach_phone_turns').update({state:'delivery_unconfirmed'}).eq('handle',m.message_handle);}
+    return done();
   }
   if(!media && /^voice (on|yes|off)$/i.test(caption)){
     let message='Voice notes are paused. You can keep chatting with your coach here by text.';
@@ -339,8 +379,7 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
         }else body=transcript='I couldn’t estimate this meal from the photo. Send a clearer photo with LOG MEAL, or enter the label values in your dashboard.';
       }
       phase='delivery_unconfirmed';
-      await sendCoachMessages(sender,pilot.phone_line,body,'');
-      if(!dashboardCommand)await shareDashboard();
+      await sendCoachMessages(sender,pilot.phone_line,dashboardCommand?body:await withDashboard(body),'');
       await db.from('coach_phone_turns').update({state:'accepted',answer:transcript}).eq('handle',m.message_handle);
     }catch{
       await db.from('coach_phone_turns').update({state:phase}).eq('handle',m.message_handle);
@@ -401,8 +440,7 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
           reply=(skip?'Photo skipped.':'Starting photo received.')+' For personalized plans and Friday check-ins, Google Gemini processes your questionnaire and the check-in photos and workout screenshots you choose to share. Your trainer can view the messages and uploads. Reply COACH ON to agree or COACH OFF anytime to turn this off.';
         }
         await activity(db,photo.client_key,'in:'+m.message_handle,'client',skip?'Skipped the starting photo.':media?'Shared a starting photo.':caption);
-        await sendCoachMessages(sender,pilot.phone_line,reply,'');
-        await shareDashboard();
+        await sendCoachMessages(sender,pilot.phone_line,await withDashboard(reply),'');
         await activity(db,photo.client_key,'out:'+m.message_handle,'coach',reply);
       }catch{return new Response(null,{status:503});}
       return done();
@@ -452,10 +490,10 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
       if (reacted) answer = answer.slice(prefix[0].length);
     }
     phase='delivery_unconfirmed';
-    answer = await sendCoachMessages(sender, pilot.phone_line, answer, demo);
+    await sendCoachMessages(sender, pilot.phone_line, await withDashboard(answer), demo);
     const saved = await turns().update({state:'accepted',answer}).eq('handle',m.message_handle).select('handle').single();
     if (saved.error) console.error('Could not save delivered coaching turn', saved.error.code);
-    else await shareDashboard();
+
   } catch {
     const failed = await turns().update({state:phase}).eq('handle',m.message_handle).select('handle').single();
     if (failed.error) console.error('Could not save failed coaching turn', failed.error.code);
