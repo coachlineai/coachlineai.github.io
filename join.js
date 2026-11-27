@@ -13,7 +13,9 @@ async function check(ref){
   if(/^\+[1-9]\d{7,14}$/.test(data)){
     id('status').textContent='Send this first text to verify your number and get your personal onboarding link.';
     id('message').onclick=null;id('message').textContent='Open Messages';
-    id('message').href='sms:'+data+'?body='+encodeURIComponent('What’s up, '+name.split(/\s+/)[0]+'?');
+    const greeting=await publicDb.rpc('client_registration_greeting',{browser_ref:ref});
+    if(greeting.error||!greeting.data){timer=setTimeout(()=>check(ref),10000);return;}
+    id('message').href='sms:'+data+'?body='+encodeURIComponent(greeting.data);
     id('message').hidden=false;
   }else{
     polls++;

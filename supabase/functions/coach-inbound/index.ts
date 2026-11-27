@@ -162,6 +162,11 @@ Deno.serve(async req => {
   if (m?.is_outbound !== false || typeof sender!=='string' || !/^\+[1-9]\d{7,14}$/.test(sender) || sender===pilot.phone_line || m.to_number !== pilot.phone_line || m.group_id) return done();
   const routing=await db.rpc('client_message_owner',{sender,destination:m.to_number,greeting:typeof m.content==='string'?m.content.trim():''});
   if(routing.error)return new Response(null,{status:503});
+  if(routing.data==='00000000-0000-0000-0000-000000000000'){
+    if(!m.opted_out && !/^(stop|stopall|unsubscribe|cancel|end|quit|start|help)$/i.test(String(m.content||'').trim()))
+      await sendCoachMessages(sender,gateway.phone_line,'Open your coach’s page and send the greeting shown in Messages so I can find your coaching profile.','');
+    return done();
+  }
   if(routing.data && routing.data!==gateway.creator_id){
     const scoped=await db.from('coach_preview_sessions').select('published_style').eq('creator_id',routing.data).single();
     if(scoped.error)return new Response(null,{status:503});
