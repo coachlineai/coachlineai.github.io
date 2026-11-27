@@ -7,6 +7,7 @@ import { trainerInstructions } from './trainer.ts';
 
 const env = (name: string) => Deno.env.get(name);
 const done = () => new Response(null, { status: 204 });
+const typingLeadMs = 3000;
 async function indicate(path: string, number: string, from_number: string, options: {state?: 'start' | 'stop'} = {}) {
   try {
     const response = await fetch('https://api.sendblue.com/api/' + path, {
@@ -23,10 +24,11 @@ async function indicate(path: string, number: string, from_number: string, optio
     const accepted = response.ok && ['OK', 'QUEUED', 'ACCEPTED', 'SENT'].includes(String(result?.status).toUpperCase());
     if (!accepted) console.warn(path, options.state || 'read', response.status);
     else if (options.state === 'start') console.info('Typing start accepted', response.status);
-    return accepted;
+    if (accepted) return 'accepted';
+    return response.status >= 500 || response.status === 408 ? 'uncertain' : 'declined';
   } catch {
     console.warn(path, options.state || 'read', 'unavailable');
-    return false;
+    return 'uncertain';
   }
 }
 
@@ -156,7 +158,7 @@ function supportsIndicators(service: unknown) {
 }
 
 Deno.serve(async req => {
-  let stopTyping: (() => Promise<boolean>) | undefined;
+  let stopTyping: (() => Promise<unknown>) | undefined;
   let sendAfter = 0;
   async function beforeReply() {
     const remaining = sendAfter - performance.now();
@@ -164,13 +166,15 @@ Deno.serve(async req => {
   }
   async function acknowledge(number: string, line: string, service: unknown) {
     if (!supportsIndicators(service)) return;
-    stopTyping = () => indicate('send-typing-indicator', number, line, {state: 'stop'});
-    await Promise.all([
-      indicate('mark-read', number, line),
-      indicate('send-typing-indicator', number, line, {state: 'start'}).then(accepted => {
-        if (accepted) sendAfter = performance.now() + 2000;
-      })
-    ]);
+    await indicate('mark-read', number, line);
+    const startTyping = () => indicate('send-typing-indicator', number, line, {state: 'start'});
+    let result = await startTyping();
+    if (result === 'uncertain') result = await startTyping();
+    if (result !== 'declined') {
+      // A timeout can still mean Sendblue queued the dots.
+      sendAfter = performance.now() + typingLeadMs;
+      stopTyping = () => indicate('send-typing-indicator', number, line, {state: 'stop'});
+    }
   }
   try {
     return await handleInbound(req, acknowledge, beforeReply);

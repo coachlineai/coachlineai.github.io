@@ -8,7 +8,7 @@ const source=readFileSync(new URL('../supabase/functions/coach-inbound/index.ts'
 const script=stripTypeScriptTypes(source.replace(/^import .*;$/gm,''));
 const sender='+12025550101', line='+12025550102';
 
-async function greeting({service='iMessage',stage='onboarding',failIndicators=false,failSend=false,processingMs=0}={}) {
+async function greeting({service='iMessage',stage='onboarding',failIndicators=false,failSend=false,processingMs=0,declineTyping=false}={}) {
   const calls=[];
   let handle;
   let clock=0;
@@ -34,11 +34,13 @@ async function greeting({service='iMessage',stage='onboarding',failIndicators=fa
       assert.equal(body.from_number,line);
       const path=new URL(url).pathname.split('/').at(-1);
       calls.push(body.state||path);
+      if(path==='mark-read') {await Promise.resolve();calls.push('read settled');}
       if(path==='send-message'){
         assert.ok(body.content.includes('onboarding/#example') || body.content==='Your plan');
         return Response.json(failSend?{}:{message_handle:'sent'});
       }
       if(body.state==='start') assert.equal(body.max_duration_ms,undefined);
+      if(body.state==='start' && declineTyping) return Response.json({status:'ERROR'},{status:400});
       if(failIndicators)throw Error('provider timeout');
       return Response.json({status:'OK'});
     }});
@@ -50,13 +52,13 @@ async function greeting({service='iMessage',stage='onboarding',failIndicators=fa
 }
 
 test('the first creator greeting requests a read receipt and typing before sending the link',async()=>{
-  assert.deepEqual(await greeting(),{status:204,calls:['mark-read','start','wait 2000','send-message','stop']});
+  assert.deepEqual(await greeting(),{status:204,calls:['mark-read','read settled','start','wait 3000','send-message','stop']});
 });
 test('an indicator outage still delivers the onboarding link',async()=>{
-  assert.deepEqual(await greeting({failIndicators:true}),{status:204,calls:['mark-read','start','send-message','stop']});
+  assert.deepEqual(await greeting({failIndicators:true}),{status:204,calls:['mark-read','read settled','start','start','wait 3000','send-message','stop']});
 });
 test('a failed reply stops typing and remains retryable',async()=>{
-  assert.deepEqual(await greeting({failSend:true}),{status:503,calls:['mark-read','start','wait 2000','send-message','stop']});
+  assert.deepEqual(await greeting({failSend:true}),{status:503,calls:['mark-read','read settled','start','wait 3000','send-message','stop']});
 });
 test('SMS sends only the link and a duplicate onboarding event stays silent',async()=>{
   assert.deepEqual(await greeting({service:'SMS'}),{status:204,calls:['send-message']});
@@ -64,6 +66,10 @@ test('SMS sends only the link and a duplicate onboarding event stays silent',asy
 });
 
 test('a generated reply uses time already spent composing',async()=>{
-  assert.deepEqual(await greeting({stage:'payment',processingMs:1250}),{status:204,calls:['mark-read','start','wait 750','send-message','stop']});
-  assert.deepEqual(await greeting({stage:'payment',processingMs:3500}),{status:204,calls:['mark-read','start','send-message','stop']});
+  assert.deepEqual(await greeting({stage:'payment',processingMs:1250}),{status:204,calls:['mark-read','read settled','start','wait 1750','send-message','stop']});
+  assert.deepEqual(await greeting({stage:'payment',processingMs:3500}),{status:204,calls:['mark-read','read settled','start','send-message','stop']});
+});
+
+test('a definitive provider rejection still lets the reply through',async()=>{
+  assert.deepEqual(await greeting({declineTyping:true}),{status:204,calls:['mark-read','read settled','start','send-message']});
 });
