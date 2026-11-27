@@ -1,4 +1,5 @@
 import {db} from './supabase-client.js';
+import {normalizeCreatorPhone} from './creator-contact.js';
 const $=s=>document.querySelector(s),form=$('.auth-form'),mode=document.body.dataset.authMode;
 const status=$('.auth-status');let recovery=mode==='reset';
 function message(text){status.hidden=false;status.textContent=text;}
@@ -12,7 +13,10 @@ form.onsubmit=async e=>{e.preventDefault();if(!form.reportValidity())return;busy
  const email=$('#email')?.value.trim(),password=$('#password').value;
  if(mode==='signup'){
   const full_name=$('#full-name').value.trim();if(!full_name)throw new Error('Please enter your full name.');
-  const {data,error}=await db.auth.signUp({email,password,options:{data:{full_name},emailRedirectTo:callback}});if(error)throw error;
+  const phone=normalizeCreatorPhone($('#creator-phone').value);
+  if(!phone)throw new Error('Enter your mobile number with its country code, for example +1 202 555 0123.');
+  if(!$('#contact-consent').checked)throw new Error('Please confirm the messaging verification agreement.');
+  const {data,error}=await db.auth.signUp({email,password,options:{data:{full_name,creator_contact_phone:phone,creator_contact_consent:'v1'},emailRedirectTo:callback}});if(error)throw error;
   if(data.session)location.replace('dashboard.html');else{form.reset();message('Check your email to confirm your account. Then sign in here.');}
  }else if(mode==='reset'){
   const {error}=await db.auth.updateUser({password});if(error)throw error;

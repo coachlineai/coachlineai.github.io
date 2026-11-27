@@ -1,3 +1,4 @@
+import {showCreatorContact} from './creator-contact.js';
 import {startCoachingCounts} from './coaching-feed.js?v=pageowner1';
 import {initSettings, showSettingsTab} from './settings.js?v=delete1';
 import qrCode from './vendor/coach-qr.js';
@@ -63,7 +64,7 @@ $('#menu').onclick=()=>$('#menu').setAttribute('aria-expanded',document.body.cla
 $('[data-home]').onclick=()=>{location.hash='home';routeDashboard();};
 $('#close').onclick=()=>$('dialog').close();$('#pageTab').onclick=()=>show('My Page');$('#coachTab').onclick=()=>show('AI Coach');
 $('#logout').onclick=async()=>{const {error}=await db.auth.signOut({scope:'local'});if(error){$('#notice').textContent=error.message;return;}location.replace('signin.html');};
-try{user=await requireUser();if(user){protectRestoredPage();const [ownedPage, result] = await Promise.all([
+try{user=await requireUser();if(user){protectRestoredPage();void showCreatorContact(db, $('#creator-contact'));const [ownedPage, result] = await Promise.all([
   accountPage(),
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);
