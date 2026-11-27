@@ -183,6 +183,15 @@ Deno.serve(async req => {
   }
 });
 
+// The client may never see the native indicator. Only acknowledge slow answers.
+function slowReplyNotice(send:()=>Promise<unknown>){
+  let pending:Promise<unknown>|undefined;
+  const timer=setTimeout(()=>{
+    pending=send().catch(()=>console.warn('Wait notice delivery unconfirmed'));
+  },8000);
+  return async()=>{clearTimeout(timer);await pending;};
+}
+
 function completionText(text:string){
   return /^(?:done|i(?:['’]m| am) done|i did it|all done|(?:i (?:just )?)?(?:finished|completed|did)(?: (?:the|my))? (?:onboarding|profile|setup)|onboarding (?:done|complete))[.!✅\s]*$/iu.test(text);
 }
@@ -204,7 +213,9 @@ async function setupReply(stage:string,intent:string,first:boolean){
 }
 
 async function handleInbound(req: Request, acknowledge: (number: string, line: string, service: unknown) => Promise<void>, beforeReply: () => Promise<void>) {
+  let beginPaidTyping: (() => Promise<void>) | undefined;
   async function sendCoachMessages(number: string, line: string, answer: string, demo: string) {
+    await beginPaidTyping?.();
     await beforeReply();
     return deliverCoachMessages(number, line, answer, demo);
   }
@@ -271,7 +282,7 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
     const row=await db.from('coach_client_intake').select('client_key,coaching_paused').eq('creator_id',pilot.creator_id).eq('phone',sender).single();
     if(row.error)return new Response(null,{status:503});
     if(row.data.coaching_paused)return done();
-    if(greeting && intake.stage==='onboarding'){
+    if(greeting){
       const claim=await db.rpc('claim_setup_greeting',{owner_id:pilot.creator_id,client:row.data.client_key,inbound_handle:m.message_handle,stage:intake.stage});
       if(claim.error)return new Response(null,{status:503});
       if(!claim.data)return done();
@@ -309,7 +320,8 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
   const client = await db.from('coach_client_intake').select(profileFields).eq('creator_id',pilot.creator_id).eq('phone',sender).single();
   if(client.error)return new Response(null,{status:503});
   if(client.data.coaching_paused)return done();
-  await acknowledge(sender,pilot.phone_line,m.service);
+  let typing: Promise<void> | undefined;
+  beginPaidTyping=()=>typing??=acknowledge(sender,pilot.phone_line,m.service);
 
   async function shareDashboard(){
     if(!client.data.coaching_processing_consent_at)return;
@@ -358,6 +370,7 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
     const {data:claim,error}=await db.rpc('claim_client_phone_turn',{owner_id:pilot.creator_id,sender,inbound_handle:m.message_handle,question_text:caption});
     if(error||claim==='busy')return new Response(null,{status:503});
     if(claim!=='claimed')return done();
+    await beginPaidTyping();
     let phase='generation_failed';
     try{
       let body:string, transcript:string;
@@ -390,11 +403,12 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
   try {
     const captured=await captureCycle(db,client.data,caption,media,m.message_handle,loadPhoto);
     if(typeof captured==='string'){await sendCoachMessages(sender,pilot.phone_line,captured,'');return done();}
-    if(captured)return done();
+    if(captured){await beginPaidTyping();return done();}
   } catch {return new Response(null,{status:503});}
   if(!media && client.data.coaching_processing_consent_at && /^(?:plan ok|sounds good|let.s do it|yes|i agree|looks good)[.! ]*$/i.test(caption)){
     const plans=await currentPlans(db,client.data.client_key);
     if(plans.workout && intake.age>=18 && !client.data.photo_saved_at && !client.data.photo_skipped_at){
+      await beginPaidTyping();
       await beforeReply();
       await requestBeforePhoto(db,pilot.creator_id,sender,pilot.phone_line);
       await shareDashboard();
@@ -452,9 +466,11 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
     return done();
   }
   const question = media ? ('[Photo] ' + caption).trim() : caption;
-  const {data:claim,error:claimError} = await db.rpc('claim_client_phone_turn',{owner_id:pilot.creator_id,sender,inbound_handle:m.message_handle,question_text:question});
+  const {data:claim,error:claimError} = await db.rpc('claim_client_chat_turn',{owner_id:pilot.creator_id,sender,inbound_handle:m.message_handle,question_text:question,greeting,has_media:Boolean(media)});
   if (claimError || claim==='busy') return new Response(null,{status:503});
   if (claim!=='claimed') return done();
+  await beginPaidTyping();
+  const finishWaitNotice=slowReplyNotice(()=>deliverCoachMessages(sender,pilot.phone_line,'Got your message. I’m working on your reply.',''));
   const turns=()=>db.from('coach_phone_turns');
   let phase='generation_failed';
   try {
@@ -489,14 +505,20 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
       const reacted = await reactToPhoto(pilot.phone_line, m.primary_message_handle || m.message_handle, m.part_index, prefix[1]);
       if (reacted) answer = answer.slice(prefix[0].length);
     }
+    const body=await withDashboard(answer);
+    await finishWaitNotice();
     phase='delivery_unconfirmed';
-    await sendCoachMessages(sender, pilot.phone_line, await withDashboard(answer), demo);
+    await sendCoachMessages(sender, pilot.phone_line, body, demo);
     const saved = await turns().update({state:'accepted',answer}).eq('handle',m.message_handle).select('handle').single();
     if (saved.error) console.error('Could not save delivered coaching turn', saved.error.code);
 
   } catch {
     const failed = await turns().update({state:phase}).eq('handle',m.message_handle).select('handle').single();
     if (failed.error) console.error('Could not save failed coaching turn', failed.error.code);
-  }
+    if(phase==='generation_failed'){
+      await finishWaitNotice();
+      await sendCoachMessages(sender,pilot.phone_line,'I couldn’t finish that reply. Send your question again in a moment.','');
+    }
+  }finally{await finishWaitNotice();}
   return done();
 }

@@ -88,3 +88,25 @@ test('a completion claim follows the saved stage',async()=>{
   await greeting({content:'I did it',stage:'coach',check:body=>assert.match(body,/onboarding is complete/)});
   assert.ok(!(await greeting({content:'done',stage:'coach',starterState:'queued'})).calls.includes('send-message'));
 });
+
+test('slow replies get one wait notice before the answer and fast replies get none',async()=>{
+  let tick,release;
+  const notices=[];
+  const ctx=vm.createContext({Deno:{serve(){}},setTimeout(fn,ms){assert.equal(ms,8000);tick=fn;return 1},clearTimeout(){tick=null},console});
+  vm.runInContext(script,ctx);
+  const finishFast=ctx.slowReplyNotice(async()=>notices.push('unexpected'));
+  await finishFast();
+  assert.equal(tick,null);
+  const finishSlow=ctx.slowReplyNotice(()=>new Promise(resolve=>{notices.push('notice');release=resolve}));
+  tick();
+  const reply=finishSlow().then(()=>notices.push('answer'));
+  assert.deepEqual(notices,['notice']);
+  release();
+  await reply;
+  await finishSlow();
+  assert.deepEqual(notices,['notice','answer']);
+});
+
+test('checkout also coalesces a quick second hello before typing or sending',async()=>{
+  assert.deepEqual((await greeting({stage:'payment',duplicateGreeting:true})).calls,[]);
+});
