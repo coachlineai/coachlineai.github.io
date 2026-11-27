@@ -8,9 +8,10 @@ const source=readFileSync(new URL('../supabase/functions/coach-inbound/index.ts'
 const script=stripTypeScriptTypes(source.replace(/^import .*;$/gm,''));
 const sender='+12025550101', line='+12025550102';
 
-async function greeting({service='iMessage',stage='onboarding',failIndicators=false,failSend=false}={}) {
+async function greeting({service='iMessage',stage='onboarding',failIndicators=false,failSend=false,processingMs=0}={}) {
   const calls=[];
   let handle;
+  let clock=0;
   const db={
     from(table){
       const q={select(){return q},eq(){return q},update(){return q},
@@ -24,7 +25,9 @@ async function greeting({service='iMessage',stage='onboarding',failIndicators=fa
         attributed_client_message_gate:{stage,first:true,invite:'example'}}[name]};
     }
   };
-  const ctx=vm.createContext({createClient:()=>db,Response,AbortSignal,console:{warn(){}},
+  const ctx=vm.createContext({createClient:()=>db,Response,AbortSignal,console:{warn(){},info(){}},
+    performance:{now:()=>clock},setTimeout:(fn,ms)=>{calls.push('wait '+ms); clock+=ms; fn();},
+    pilotTurn:async(db,owner,phone,style,handle,caption,media,send)=>{clock+=processingMs; await send('Your plan'); return true;},
     Deno:{env:{get:()=>undefined},serve:fn=>handle=fn},fetch:async(url,options)=>{
       const body=JSON.parse(options.body);
       assert.equal(body.number,sender);
@@ -32,9 +35,10 @@ async function greeting({service='iMessage',stage='onboarding',failIndicators=fa
       const path=new URL(url).pathname.split('/').at(-1);
       calls.push(body.state||path);
       if(path==='send-message'){
-        assert.match(body.content,/onboarding\/#example/);
+        assert.ok(body.content.includes('onboarding/#example') || body.content==='Your plan');
         return Response.json(failSend?{}:{message_handle:'sent'});
       }
+      if(body.state==='start') assert.equal(body.max_duration_ms,undefined);
       if(failIndicators)throw Error('provider timeout');
       return Response.json({status:'OK'});
     }});
@@ -46,15 +50,20 @@ async function greeting({service='iMessage',stage='onboarding',failIndicators=fa
 }
 
 test('the first creator greeting requests a read receipt and typing before sending the link',async()=>{
-  assert.deepEqual(await greeting(),{status:204,calls:['mark-read','start','send-message','stop']});
+  assert.deepEqual(await greeting(),{status:204,calls:['mark-read','start','wait 2000','send-message','stop']});
 });
 test('an indicator outage still delivers the onboarding link',async()=>{
   assert.deepEqual(await greeting({failIndicators:true}),{status:204,calls:['mark-read','start','send-message','stop']});
 });
 test('a failed reply stops typing and remains retryable',async()=>{
-  assert.deepEqual(await greeting({failSend:true}),{status:503,calls:['mark-read','start','send-message','stop']});
+  assert.deepEqual(await greeting({failSend:true}),{status:503,calls:['mark-read','start','wait 2000','send-message','stop']});
 });
 test('SMS sends only the link and a duplicate onboarding event stays silent',async()=>{
   assert.deepEqual(await greeting({service:'SMS'}),{status:204,calls:['send-message']});
   assert.deepEqual(await greeting({stage:'duplicate'}),{status:204,calls:[]});
+});
+
+test('a generated reply uses time already spent composing',async()=>{
+  assert.deepEqual(await greeting({stage:'payment',processingMs:1250}),{status:204,calls:['mark-read','start','wait 750','send-message','stop']});
+  assert.deepEqual(await greeting({stage:'payment',processingMs:3500}),{status:204,calls:['mark-read','start','send-message','stop']});
 });

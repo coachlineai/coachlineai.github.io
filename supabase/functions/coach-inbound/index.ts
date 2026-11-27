@@ -7,7 +7,7 @@ import { trainerInstructions } from './trainer.ts';
 
 const env = (name: string) => Deno.env.get(name);
 const done = () => new Response(null, { status: 204 });
-async function indicate(path: string, number: string, from_number: string, options = {}) {
+async function indicate(path: string, number: string, from_number: string, options: {state?: 'start' | 'stop'} = {}) {
   try {
     const response = await fetch('https://api.sendblue.com/api/' + path, {
       method: 'POST',
@@ -20,9 +20,13 @@ async function indicate(path: string, number: string, from_number: string, optio
       body: JSON.stringify({ number, from_number, ...options }),
     });
     const result = await response.json().catch(() => null);
-    if (!response.ok || result?.status === 'ERROR') console.warn(path, response.status);
+    const accepted = response.ok && ['OK', 'QUEUED', 'ACCEPTED', 'SENT'].includes(String(result?.status).toUpperCase());
+    if (!accepted) console.warn(path, options.state || 'read', response.status);
+    else if (options.state === 'start') console.info('Typing start accepted', response.status);
+    return accepted;
   } catch {
-    console.warn(path, 'unavailable');
+    console.warn(path, options.state || 'read', 'unavailable');
+    return false;
   }
 }
 
@@ -68,7 +72,7 @@ async function progressLink(db:any,client:string,view:string){
   return 'https://coachlineai.github.io/progress/#access='+encodeURIComponent(data)+'&view='+view;
 }
 
-async function sendCoachMessages(number: string, line: string, answer: string, demo: string) {
+async function deliverCoachMessages(number: string, line: string, answer: string, demo: string) {
   async function send(content: string) {
     const response = await fetch('https://api.sendblue.co/api/send-message', {
       method: 'POST',
@@ -152,23 +156,34 @@ function supportsIndicators(service: unknown) {
 }
 
 Deno.serve(async req => {
-  let stopTyping: (() => Promise<void>) | undefined;
+  let stopTyping: (() => Promise<boolean>) | undefined;
+  let sendAfter = 0;
+  async function beforeReply() {
+    const remaining = sendAfter - performance.now();
+    if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+  }
   async function acknowledge(number: string, line: string, service: unknown) {
     if (!supportsIndicators(service)) return;
     stopTyping = () => indicate('send-typing-indicator', number, line, {state: 'stop'});
     await Promise.all([
       indicate('mark-read', number, line),
-      indicate('send-typing-indicator', number, line, {state: 'start', max_duration_ms: 60000})
+      indicate('send-typing-indicator', number, line, {state: 'start'}).then(accepted => {
+        if (accepted) sendAfter = performance.now() + 2000;
+      })
     ]);
   }
   try {
-    return await handleInbound(req, acknowledge);
+    return await handleInbound(req, acknowledge, beforeReply);
   } finally {
     await stopTyping?.();
   }
 });
 
-async function handleInbound(req: Request, acknowledge: (number: string, line: string, service: unknown) => Promise<void>) {
+async function handleInbound(req: Request, acknowledge: (number: string, line: string, service: unknown) => Promise<void>, beforeReply: () => Promise<void>) {
+  async function sendCoachMessages(number: string, line: string, answer: string, demo: string) {
+    await beforeReply();
+    return deliverCoachMessages(number, line, answer, demo);
+  }
   if (req.method !== 'POST') return new Response(null, {status:405});
   const signature = req.headers.get('sb-signing-secret');
   if (!signature || !/^[0-9a-f-]{36}$/i.test(signature)) return new Response(null,{status:401});
@@ -337,6 +352,7 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
   if(!media && client.data.coaching_processing_consent_at && /^(?:plan ok|sounds good|let.s do it|yes|i agree|looks good)[.! ]*$/i.test(caption)){
     const plans=await currentPlans(db,client.data.client_key);
     if(plans.workout && intake.age>=18 && !client.data.photo_saved_at && !client.data.photo_skipped_at){
+      await beforeReply();
       await requestBeforePhoto(db,pilot.creator_id,sender,pilot.phone_line);
       await shareDashboard();
       return done();
