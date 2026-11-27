@@ -106,6 +106,16 @@ async function process(j:any){
     coach.phone_line=(await read(db.rpc('pilot_contact_line',{owner_id:c.creator_id,sender:c.phone}))) || coach.phone_line;
     if(!coach.phone_line)throw Error('No messaging line');
     if(!await canSend(c)){await update({state:'queued',lease:null,next_at:new Date(Date.now()+3600000)});return;}
+    if(j.kind==='starter' && !j.messages){
+      try{
+        const indicator=await fetch('https://api.sendblue.com/api/send-typing-indicator',{
+          method:'POST',signal:AbortSignal.timeout(1500),
+          headers:{'Content-Type':'application/json','sb-api-key-id':Deno.env.get('SENDBLUE_API_KEY_ID')!,'sb-api-secret-key':Deno.env.get('SENDBLUE_API_SECRET_KEY')!},
+          body:JSON.stringify({number:c.phone,from_number:coach.phone_line,state:'start'})
+        });
+        if(!indicator.ok)console.warn('Starter typing indicator declined',indicator.status);
+      }catch{console.warn('Starter typing indicator unavailable');}
+    }
     const batch:Message[]=j.messages||await messages(j,c,coach.published_style);
     if(!j.messages){
       if(!batch.length)batch.push(say('dashboard','View your dashboard'));

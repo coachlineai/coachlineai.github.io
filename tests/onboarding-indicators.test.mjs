@@ -78,7 +78,7 @@ test('a definitive provider rejection still lets the reply through',async()=>{
 });
 
 test('Gemini drafts the intro and the server attaches the real invitation and DONE instruction',async()=>{
-  await greeting({check:body=>assert.match(body,/Gemini greeting[\s\S]+onboarding\/#example[\s\S]+Text “done”/)});
+  await greeting({check:body=>assert.match(body,/Gemini greeting[\s\S]+onboarding\/#example[\s\S]+I’ll text you here when your plan is ready\./)});
   assert.deepEqual((await greeting({duplicateGreeting:true})).calls,[]);
 });
 test('a completion claim follows the saved stage',async()=>{

@@ -53,7 +53,7 @@ async function startDemoCoaching(){
     const line=result.line;
     if(typeof line!=='string'||!/^\+[1-9]\d{7,14}$/.test(line))throw Error('link');
     el('heading').textContent='Your coaching chat is ready';
-    el('message').textContent=result.manual?'Your demo is ready. Open Messages and say hello to start coaching. No charge was made.':'Your AI coach has your onboarding answers. Open Messages to continue the conversation. No charge was made.';
+    el('message').textContent=result.active?'Your coaching plan is already active. You can return to Messages.':'Your coach is preparing your plan and will text you here when it’s ready. You can close this page. No charge was made.';
     el('action').hidden=true;
     el('consent-row').hidden=true;
     el('sms').href='sms:'+line;
@@ -75,7 +75,7 @@ async function confirmPayment(){
       if(result.demo){el('sample').hidden=false;el('back').href='./plans.html#preview';publicDemoComplete();return;}
       if(result.sandbox){
         el('heading').textContent='Test payment confirmed';
-        el('message').textContent='Your coach has your questionnaire and is preparing your meals and workouts. No money was charged.';
+        el('message').textContent='Your coach will text you when your plan is ready. You can close this page. No money was charged.';
         if(/^\+[1-9]\d{7,14}$/.test(result.coachPhone)){el('sms').href='sms:'+result.coachPhone;el('sms').hidden=false;}
         return;
       }

@@ -307,7 +307,7 @@ async function handleInbound(req: Request, acknowledge: (number: string, line: s
     const intent=!media && completionText(caption)?'completion':greeting?'greeting':/\b(price|pricing|cost|pay|plans?)\b/i.test(caption)?'pricing':/\blink\b/i.test(caption)?'link':'setup';
     const message=!media && /^voice (on|yes|off)$/i.test(caption)?'Your coach replies by text. Here’s your personal link.':await setupReply(intake.stage,intent,Boolean(intake.first));
     try {
-      await sendCoachMessages(sender,pilot.phone_line,message+'\n\n'+link+'\n\nText “done” when you’ve completed onboarding.','');
+      await sendCoachMessages(sender,pilot.phone_line,message+'\n\n'+link+'\n\nI’ll text you here when your plan is ready.','');
     } catch {
       await db.from('coach_setup_replies').update({claimed_at:'1970-01-01T00:00:00Z'}).eq('creator_id',pilot.creator_id).eq('handle',m.message_handle);
       return new Response(null,{status:503});
