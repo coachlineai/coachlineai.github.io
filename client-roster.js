@@ -13,7 +13,7 @@ export async function liveRoster(owner,preview){
   leaveRoster();
   const run=generation;
   const root=document.querySelector('#clients-view');
-  root.innerHTML='<div class="client-heading"><h1 tabindex="-1">Clients</h1><button data-sample>Preview sample clients</button></div><div class="client-box"><div class="roster-tools"><label>Search clients<input type="search" placeholder="Name or last 4 digits"></label><label>Payment status<select data-filter><option value="">All clients</option><option>Paid</option><option>Awaiting payment</option><option>Ended</option></select></label><label>Sort by<select data-sort><option value="recent">Recently joined</option><option value="az">Name A to Z</option><option value="za">Name Z to A</option></select></label></div><div data-results aria-live="polite">Loading clients…</div></div>';
+  root.innerHTML='<div class="client-heading"><h1 tabindex="-1">Clients</h1><button data-sample>Preview sample clients</button></div><div class="client-box"><div class="roster-tools"><label>Search clients<input type="search" placeholder="Name or last 4 digits"></label><label>Payment status<select data-filter><option value="">All clients</option><option>Sandbox payment</option><option>Paid</option><option>Awaiting payment</option><option>Ended</option></select></label><label>Sort by<select data-sort><option value="recent">Recently joined</option><option value="az">Name A to Z</option><option value="za">Name Z to A</option></select></label></div><div data-results aria-live="polite">Loading clients…</div></div>';
   root.querySelector('[data-sample]').onclick=preview;
   const out=root.querySelector('[data-results]');
   const search=root.querySelector('input'),filter=root.querySelector('[data-filter]'),ordering=root.querySelector('[data-sort]');
@@ -24,7 +24,7 @@ export async function liveRoster(owner,preview){
     const matches=rows.filter(c=>(!status||c.payment===status) && (c.name+' '+c.digits).toLowerCase().includes(query.trim().toLowerCase()));
     if(sort!=='recent')matches.sort((a,b)=>(sort==='az'?1:-1)*String(a.name).localeCompare(String(b.name)));
     if(!matches.length){out.innerHTML='<p class="client-empty">'+(rows.length?'No clients match your filters.':'Completed client profiles will appear here.')+'</p>';return;}
-    out.innerHTML='<div class="client-table-scroll"><table class="registered-clients"><thead><tr>'+['Client','Mission and goal','Payment','Before photo','Onboarding summary'].map(t=>'<th scope="col">'+t+'</th>').join('')+'</tr></thead><tbody>'+matches.map(c=>'<tr><th scope="row"><button data-feed="'+label(c.id)+'">'+label(c.name||'Client')+'</button>'+(unread.has(c.id)?'<span class="client-unread">New</span>':'')+'<small>•• '+label(c.digits)+' · Joined '+label(new Date(c.joined_at).toLocaleDateString())+'</small></th><td>'+label(c.mission||'—')+'<small>'+label(c.goal)+'</small></td><td>'+label(c.payment)+(c.plan?'<small>'+label(labels[c.plan])+' · '+label(price.format(c.amount/100))+'</small>':'')+'</td><td>'+(c.photo==='Received'?'<button data-photo="'+label(c.id)+'">View photo</button>':label(c.photo))+'</td><td><button data-pdf="'+label(c.id)+'">Open PDF</button></td></tr>').join('')+'</tbody></table></div>';
+    out.innerHTML='<div class="client-table-scroll"><table class="registered-clients"><thead><tr>'+['Client','Mission and goal','Last reported activity','Payment','Before photo','Onboarding summary'].map(t=>'<th scope="col">'+t+'</th>').join('')+'</tr></thead><tbody>'+matches.map(c=>'<tr><th scope="row"><button data-feed="'+label(c.id)+'">'+label(c.name||'Client')+'</button>'+(unread.has(c.id)?'<span class="client-unread">New</span>':'')+'<small>•• '+label(c.digits)+' · Joined '+label(new Date(c.joined_at).toLocaleDateString())+'</small></th><td>'+label(c.mission||'—')+'<small>'+label(c.goal)+'</small></td><td>'+label(c.report?.status||'—')+(c.report?'<small>'+label(new Date(c.report.reported_at).toLocaleString())+'</small>':'')+'</td><td>'+label(c.payment)+(c.plan?'<small>'+label(labels[c.plan])+' · '+label(price.format(c.amount/100))+'</small>':'')+'</td><td>'+(c.photo==='Received'?'<button data-photo="'+label(c.id)+'">View photo</button>':label(c.photo))+'</td><td><button data-pdf="'+label(c.id)+'">Open PDF</button></td></tr>').join('')+'</tbody></table></div>';
   }
   async function fetchRows(){
     const next=[];
@@ -35,7 +35,9 @@ export async function liveRoster(owner,preview){
       next.push(...data);
       if(data.length<250)break;
     }
-    const alerts=await db.rpc('creator_unread_clients');
+    const [alerts,statuses]=await Promise.all([db.rpc('creator_unread_clients'),db.rpc('creator_reported_statuses')]);
+    const reports=new Map((statuses.data||[]).map(s=>[s.client_id,s]));
+    for(const row of next)row.report=reports.get(row.id);
     if(run!==generation)return;
     rows.splice(0,rows.length,...next);
     if(!alerts.error){unread.clear();for(const item of alerts.data)unread.add(item.id);}

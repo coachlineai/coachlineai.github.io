@@ -29,7 +29,7 @@ test('a personal simulation needs opt-in, uses its invite, and opens the creator
   assert.equal(requests.length,0);
   consent.checked=true;consent.onchange();
   await action.onclick();
-  assert.deepEqual(requests[0].body,{action:'intake-simulate',ticket,consent:true});
+  assert.deepEqual(requests[0].body,{action:'intake-simulate',ticket,consent:true,plan:'once',expectedCents:9999});
   assert.equal(element('sms').href,'sms:+12025550199');
   assert.equal(element('sms').hidden,false);
 });

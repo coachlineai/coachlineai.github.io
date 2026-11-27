@@ -1,126 +1,34 @@
 import assert from 'node:assert/strict';
+import {test} from 'node:test';
 import {readFileSync} from 'node:fs';
 import {stripTypeScriptTypes} from 'node:module';
-import {test} from 'node:test';
 import vm from 'node:vm';
-
-const source = readFileSync(new URL('../supabase/functions/creator-billing/index.ts',import.meta.url),'utf8').replace(/^import .*;$/m,'');
-function fixture({demo=false, account=null, ready=false, intake=null, pricing=null,redeemed=null}={}) {
-  const calls=[];
-  const orders=[];
-  let handler;
-  const db={
-    auth:{admin:{getUserById:async()=>({data:{user:{id:'creator'}}})},getUser:async()=>({data:{user:{id:'creator'}}})},
-    from(table) {
-      return {
-        select(){return this}, eq(){return this},not(){return this},gte(){return this},
-        async maybeSingle(){
-          const rows={coach_client_intake:intake,coach_pricing:pricing,profiles:{id:'creator'},creator_payout_exclusions:demo?{}:null,creator_stripe_accounts:account?{account_id:account}:null};
-          return {data:rows[table]};
-        },
-        async upsert(row){if(table==='coaching_orders')orders.push(row);else account=row.account_id;return {}}
-      };
-    }
-  };
-  async function fetch(url,req){
-    const path=new URL(url).pathname.slice(4);
-    calls.push({path,params:Object.fromEntries(req.body||[])});
-    if(path.startsWith('coupons/')){
-      if(redeemed===null)return Response.json({error:{code:'resource_missing'}},{status:404});
-      return Response.json({max_redemptions:5,amount_off:2001,currency:'usd',times_redeemed:redeemed,valid:redeemed<5});
-    }
-    if(path==='coupons'){redeemed=0;return Response.json({id:req.body.get('id')});}
-    const data = path==='accounts'?{id:'acct_A'}:path==='accounts/acct_A'?{charges_enabled:ready,payouts_enabled:ready,capabilities:{transfers:'active'},settings:{payouts:{schedule:{interval:'monthly',monthly_anchor:15}}}}:{id:'cs_live_mock',url:'https://checkout.stripe.com/c/pay/mock'};
-    return Response.json(data);
-  }
-  vm.runInNewContext(stripTypeScriptTypes(source),{URLSearchParams,Response,console,crypto,TextEncoder,fetch,createClient:()=>db,Deno:{env:{get:()=> 'sk_live_mock'},serve:fn=>handler=fn}});
-  return {calls,orders,request:(action,body={})=>handler(new Request('https://example.test',{method:'POST',body:JSON.stringify({action,...body})}))};
+const source=readFileSync(new URL('../supabase/functions/creator-billing/index.ts',import.meta.url),'utf8').replace(/^import .*;$/gm,'');
+const ticket='11111111-1111-4111-8111-111111111111';
+function fixture({ready=true,key='',record=true}={}){
+ let serve;const recorded=[],calls=[];
+ const db={
+   from(table){return {select(){return this},eq(){return this},not(){return this},gte(){return this},maybeSingle(){return {data:table==='coach_pricing'?null:record?{client_key:'client',creator_id:'creator',phone:'test',birth_date:'1994-01-01'}:null}}}},
+   rpc(name,args){if(name==='confirm_test_checkout')recorded.push(args);return {data:({pilot_client_ready:ready,coach_has_paid_access:false,pilot_contact_line:'test-line',pilot_lifetime_quote:9999})[name]}}
+ };
+ const fetch=async(url,opts)=>{calls.push({url,opts});return Response.json({id:'cs_test_example',livemode:false,url:'https://checkout.stripe.com/c/pay/example'})};
+ vm.runInNewContext(stripTypeScriptTypes(source),{createClient:()=>db,fetch,URLSearchParams,Response,Deno:{env:{get:n=>n==='STRIPE_TEST_SECRET_KEY'?key:n==='STRIPE_TEST_WEBHOOK_SECRET'?'whsec_fixture':'sk_live_ignored'},serve:fn=>serve=fn}});
+ return {recorded,calls,request:(action,extra={})=>serve(new Request('https://example.test',{method:'POST',body:JSON.stringify({ticket,action,plan:'year',expectedCents:3199,consent:true,...extra})}))};
 }
-test('test creator cannot onboard or charge and Stripe receives no calls',async()=>{
-  const f=fixture({demo:true});
-  for(const action of ['checkout','connect'])assert.equal((await f.request(action)).status,409);
-  assert.equal(f.calls.length,0);
+test('only a completed, verified and consenting client can activate a sandbox plan',async()=>{
+ for(const [settings,extra,status] of [[{record:false},{},403],[{ready:false},{},409],[{},{consent:false},409],[{},{expectedCents:1},409]]){
+  const f=fixture(settings);assert.equal((await f.request('intake-simulate',extra)).status,status);assert.equal(f.recorded.length,0);
+ }
+ const f=fixture();assert.equal((await f.request('intake-simulate')).status,200);assert.equal(f.recorded[0].selected,'year');assert.equal(f.recorded[0].client,'client');assert.equal(f.calls.length,0);
 });
-test('checkout requires a mapped account ready for payouts',async()=>{
-  for(const account of [null,'acct_A'])assert.equal((await fixture({account}).request('checkout')).status,409);
+test('hosted checkout uses a test key and the intake owner, equally for all three plans',async()=>{
+ for(const [plan,expectedCents] of [['once',9999],['year',3199],['week',799]]){
+  const f=fixture({key:'sk_test_fixture'});assert.equal((await f.request('intake-checkout',{plan,expectedCents,creator_id:'spoofed'})).status,200);
+  const {opts}=f.calls[0];assert.equal(opts.headers.Authorization,'Bearer sk_test_fixture');assert.equal(opts.body.get('metadata[creator_id]'),'creator');assert.equal(opts.body.get('mode'),plan==='once'?'payment':'subscription');assert.equal(f.recorded.length,0);
+ }
 });
-test('onboarding sets monthly payouts on day 15 and reuses the mapping',async()=>{
-  const f=fixture();
-  await f.request('connect'); await f.request('connect');
-  const created=f.calls.filter(c=>c.path==='accounts');
-  assert.equal(created.length,1);
-  assert.equal(created[0].params['settings[payouts][schedule][monthly_anchor]'],'15');
-  assert.equal(created[0].params['settings[payouts][schedule][interval]'],'monthly');
-});
-test('all three plans route the creator share to their Stripe account',async()=>{
-  const f=fixture({account:'acct_A',ready:true});
-  const issued=await (await f.request('checkout')).json();
-  const offer=new URLSearchParams(new URL(issued.url).hash.slice(1)).get('offer');
-  assert.ok(offer);
-  assert.equal(f.calls.filter(c=>c.path==='checkout/sessions').length,0);
-  assert.equal((await f.request('offer-prices',{offer:offer+'1'})).status,403);
-  const {prices}=await (await f.request('offer-prices',{offer})).json();
-  for(const plan of ['week','year','once']){
-    assert.equal((await f.request('offer-checkout',{offer,plan,expectedCents:prices[plan]})).status,200);
-  }
-  const sessions=f.calls.filter(c=>c.path==='checkout/sessions');
-  assert.equal(sessions.length,3);
-  assert.equal(f.orders.length,3);
-  for(const {params} of sessions){
-    assert.match(params.success_url,/payment\.html#session=\{CHECKOUT_SESSION_ID\}/);
-    assert.equal(params['phone_number_collection[enabled]'],'true');
-    const once=params.mode==='payment';
-    const prefix=once?'payment_intent_data':'subscription_data';
-    assert.equal(params[prefix+'[transfer_data][destination]'],'acct_A');
-    assert.equal(params[prefix+'[transfer_data]['+(once?'amount':'amount_percent')+']'],once?'7999':'80');
-  }
-});
-
-const ticket='00000000-0000-4000-8000-000000000000';
-test('expired or unfinished intakes cannot open checkout',async()=>{
-  const f=fixture();
-  assert.equal((await f.request('intake-prices',{ticket})).status,403);
-  assert.equal(f.calls.length,0);
-});
-test('intake quotes the creator prices and validates the amount before opening Stripe',async()=>{
-  const f=fixture({intake:{creator_id:'creator'},account:'acct_A',ready:true,pricing:{weekly_cents:999,annual_cents:48000}});
-  const quote=await (await f.request('intake-prices',{ticket})).json();
-  assert.deepEqual(quote,{prices:{week:999,year:4000,once:9999,remaining:5,reference:48000},available:true});
-  assert.equal((await f.request('intake-checkout',{ticket,plan:'year',expectedCents:3199})).status,409);
-  for (const [plan,expectedCents] of [['year',4000],['once',9999],['week',999]]) {
-    assert.equal((await f.request('intake-checkout',{ticket,plan,expectedCents})).status,200);
-    const params=f.calls.at(-1).params;
-    assert.equal(params['line_items[0][price_data][unit_amount]'],String(plan==='once'?12000:expectedCents));
-    assert.equal(params['line_items[0][price_data][recurring][interval]'],plan==='once'?undefined:plan);
-    assert.equal(params['metadata[creator_id]'],'creator');
-    assert.ok(!JSON.stringify(params).includes(ticket));
-  }
-});
-test('unconnected creators can show prices without allowing payment',async()=>{
-  const f=fixture({intake:{creator_id:'creator'}});
-  const q=await (await f.request('intake-prices',{ticket})).json();
-  assert.deepEqual(q,{available:false,prices:{week:799,year:3199,once:9999,remaining:null,reference:38388}});
-  assert.equal((await f.request('intake-checkout',{ticket,plan:'week',expectedCents:799})).status,409);
-});
-
-test('the first five lifetime redemptions share a single capped Stripe coupon',async()=>{
-  const f=fixture({account:'acct_A',ready:true,intake:{creator_id:'creator'}});
-  await f.request('intake-checkout',{ticket,plan:'once',expectedCents:9999});
-  const coupon=f.calls.find(c=>c.path==='coupons').params;
-  assert.equal(coupon.max_redemptions,'5');
-  assert.equal(coupon.amount_off,'2001');
-  assert.equal(f.calls.at(-1).params['discounts[0][coupon]'],coupon.id);
-});
-test('a sold-out offer requires a fresh confirmation of the regular price',async()=>{
-  const f=fixture({account:'acct_A',ready:true,intake:{creator_id:'creator'},redeemed:5});
-  const {prices}=await (await f.request('intake-prices',{ticket})).json();
-  assert.equal(prices.once,12000);
-  assert.equal(prices.remaining,0);
-  const stale=await f.request('intake-checkout',{ticket,plan:'once',expectedCents:9999});
-  assert.equal(stale.status,409);
-  assert.equal((await stale.json()).changed,true);
-  assert.equal((await f.request('intake-checkout',{ticket,plan:'once',expectedCents:12000})).status,200);
-  const params=f.calls.at(-1).params;
-  assert.equal(params['discounts[0][coupon]'],undefined);
-  assert.equal(params['payment_intent_data[transfer_data][amount]'],'9600');
+test('live keys and legacy direct payment links cannot open checkout during the pilot',async()=>{
+ const f=fixture({key:'sk_live_disabled'});
+ for(const a of ['offer-checkout','connect','intake-checkout'])assert.equal((await f.request(a)).status,409);
+ assert.equal(f.calls.length,0);
 });

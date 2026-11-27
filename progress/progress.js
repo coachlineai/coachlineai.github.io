@@ -56,11 +56,22 @@ function plan(view,kind,day){
  const history=el(box,'details');el(history,'summary','Plan history ('+seq.length+')');
  for(const e of [...seq].reverse()){el(history,'p',fmt(local(new Date(e.at)),{month:'short',day:'numeric',year:'numeric'}),'date');el(history,'p',e.body,'copy');}
 }
-const labels={meal_log:'Meal logged',workout_done:'Workout completed',burn:'Workout calories',checkin_note:'Your check-in',review:'Coach feedback',friday:'Friday check-in',meal:'Meal plan updated',workout:'Workout plan updated'};
+const labels={client_status:'Reported activity',progress:'Progress photo',meal_log:'Meal logged',workout_done:'Workout completed',burn:'Workout calories',checkin_note:'Your check-in',review:'Coach feedback',friday:'Friday check-in',meal:'Meal plan updated',workout:'Workout plan updated'};
+function photo(view,eventId){
+ const b=btn(view,eventId?'View progress photo':'View starting photo',async()=>{
+  b.disabled=true;
+  try{
+   const r=await fetch(api.replace('/rest/v1/rpc/','/functions/v1/client-progress-photo'),{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify({ticket:token,eventId})});
+   if(!r.ok)throw Error();
+   const url=URL.createObjectURL(await r.blob()),img=el(view,'img');img.alt=eventId?'Progress photo':'Starting photo';img.style.maxWidth='100%';img.onload=()=>URL.revokeObjectURL(url);img.src=url;b.hidden=true;
+  }catch{b.disabled=false;b.textContent='Try loading photo again';}
+ });
+}
 function timeline(view,events){
  if(!events.length){el(view,'p','No entries yet.','muted');return;}
  for(const e of [...events].reverse()){
   const c=card(view);el(c,'small',fmt(eventDay(e),{month:'short',day:'numeric',year:'numeric'}),'date');el(c,'h3',labels[e.kind]);el(c,'p',e.body,'copy');
+  if(e.kind==='progress'&&data.adult)photo(c,e.id);
   if(e.kind==='meal_log'&&data.adult)el(c,'small',e.kcal+' kcal · '+e.macros.protein+' g protein · '+e.macros.carbs+' g carbs · '+e.macros.fat+' g fat');
  }
 }
@@ -96,7 +107,7 @@ function render(){
  if(tab==='Today'){el(view,'p',fmt(today(),{weekday:'long',month:'long',day:'numeric'}),'date');el(view,'h1',data.name?'Today, '+data.name:'Today');if(data.adult)daily(view);
  if(data.goal)el(view,'p','Your goal · '+data.goal,'muted');plan(view,'workout',today());plan(view,'meal',today());}
  else if(tab==='Calendar'){el(view,'h1','Calendar');calendar(view);}
- else{el(view,'h1','Progress');timeline(view,data.events);}
+ else{el(view,'h1','Progress');if(data.baseline&&data.adult)photo(card(view),null);timeline(view,data.events);}
 }
 const form=$('dialog form');function openMeal(day){form.reset();form.elements.day.value=day;form.elements.day.max=today();form.querySelector('p').textContent='';entry=crypto.randomUUID();$('#meal').showModal();}
 $('#cancel').onclick=()=>$('#meal').close();

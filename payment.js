@@ -46,7 +46,7 @@ async function startDemoCoaching(){
   try{
     const response=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/functions/v1/creator-billing',{
       method:'POST',cache:'no-store',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},
-      body:JSON.stringify({action:'intake-simulate',ticket:intake,consent:true})
+      body:JSON.stringify({action:'intake-simulate',ticket:intake,consent:true,plan,expectedCents:Number(params.get('cents')||offers[plan].amount)})
     });
     const result=await response.json();
     if(!response.ok){el('message').textContent=result.error||'Couldn’t start your chat. Try again.';return;}
@@ -73,8 +73,14 @@ async function confirmPayment(){
     if(result.state==='active'){
       order(result.plan,result.amount,result.demo);
       if(result.demo){el('sample').hidden=false;el('back').href='./plans.html#preview';publicDemoComplete();return;}
+      if(result.sandbox){
+        el('heading').textContent='Test payment confirmed';
+        el('message').textContent='Your coach has your questionnaire and is preparing your meals and workouts. No money was charged.';
+        if(/^\+[1-9]\d{7,14}$/.test(result.coachPhone)){el('sms').href='sms:'+result.coachPhone;el('sms').hidden=false;}
+        return;
+      }
       el('heading').textContent='Payment confirmed';
-      el('message').textContent='Your plan is active. To get personalized plans and Friday check-ins, text COACH ON. Google Gemini processes your questionnaire and any check-in photos or workout screenshots you share. Sendblue delivers the texts. Your trainer can see them. You can text COACH OFF anytime.';
+      el('message').textContent='Your plan is active. To get personalized plans and Friday check-ins, text COACH ON. Your AI coach uses your questionnaire and any check-in photos or workout screenshots you share. Your trainer can see them. You can text COACH OFF anytime.';
       if(/^\+[1-9]\d{7,14}$/.test(result.coachPhone)){
         el('sms').href='sms:'+result.coachPhone;el('sms').hidden=false;
       }
@@ -96,13 +102,13 @@ const plan=params.get('preview');
 if(Object.hasOwn(offers,plan)){
   el('back').href='./plans.html#preview&plan='+plan;
   el('sample').hidden=false;
-  order(plan,offers[plan].amount,true);
+  order(plan,personalDemo?Number(params.get('cents')||offers[plan].amount):offers[plan].amount,true);
   el('heading').textContent='Preview your checkout';
   el('message').textContent='Try the confirmation step without entering payment details.';
   if(personalDemo){
     el('back').href='./plans.html#intake='+encodeURIComponent(intake);
     el('heading').textContent='Start your coaching demo';
-    el('message').textContent='Try 24 hours of personalized text coaching with up to 30 replies. No card or charge.';
+    el('message').textContent='Simulate this payment to start your personalized coaching plan. No card or charge.';
     el('consent-row').hidden=false;
     button('Simulate payment',startDemoCoaching);
     el('action').disabled=!el('consent').checked;

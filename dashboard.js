@@ -64,7 +64,14 @@ $('#menu').onclick=()=>$('#menu').setAttribute('aria-expanded',document.body.cla
 $('[data-home]').onclick=()=>{location.hash='home';routeDashboard();};
 $('#close').onclick=()=>$('dialog').close();$('#pageTab').onclick=()=>show('My Page');$('#coachTab').onclick=()=>show('AI Coach');
 $('#logout').onclick=async()=>{const {error}=await db.auth.signOut({scope:'local'});if(error){$('#notice').textContent=error.message;return;}location.replace('signin.html');};
-try{user=await requireUser();if(user){protectRestoredPage();void showCreatorContact(db, $('#creator-contact'));const [ownedPage, result] = await Promise.all([
+try{user=await requireUser();if(user){protectRestoredPage();
+const recovery=await db.rpc('recover_reserved_creator_page');
+if(recovery.error)throw recovery.error;
+if(recovery.data==='verify_email'){
+ const verify=node('button','Verify email to restore your published page');$('#notice').replaceChildren(verify);
+ verify.onclick=async()=>{verify.disabled=true;const {error}=await db.auth.signInWithOtp({email:user.email,options:{shouldCreateUser:false,emailRedirectTo:new URL('./dashboard.html',location.href).href}});verify.textContent=error?'Try sending the verification email again':'Check your email to restore your page';verify.disabled=!error;};
+}
+void showCreatorContact(db, $('#creator-contact'));const [ownedPage, result] = await Promise.all([
   accountPage(),
   db.from('profiles').select('full_name').eq('id', user.id).single()
 ]);

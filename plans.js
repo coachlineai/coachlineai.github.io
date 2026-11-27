@@ -9,7 +9,8 @@ if(ticket||offer){
   ticket=sessionStorage.getItem('coachline-checkout-resume');
   offer=sessionStorage.getItem('coachline-offer-resume');
 }
-let simulating=preview;
+let simulating=preview, needsConsent=false;
+const consent=document.querySelector("#agree");consent.onchange=()=>showTerms();
 let prices, available=false, selected=preview && ['once','year','week'].includes(params.get('plan'))?params.get('plan'):'once';
 const currency=cents=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(cents/100);
 const titles={year:'Annual coaching',week:'Weekly coaching',once:'One-time payment'};
@@ -28,7 +29,7 @@ async function billing(action,extra={}){
 function showTerms(){
   const amount=currency(prices[selected]);
   document.querySelector('#terms').textContent=selected==='once'?amount+' billed once.':amount+' billed every '+selected+'. Renews until canceled.';
-  pay.disabled=!available;
+  pay.disabled=!available || (needsConsent&&!consent.checked);
 }
 function draw(){
   plans.replaceChildren();
@@ -74,11 +75,7 @@ function draw(){
 async function load(){
   if(preview){sessionStorage.removeItem('coachline-preview-line');prices={week:799,year:3199,once:9999,reference:38388};available=true;pay.textContent='Preview checkout';note.textContent='Try checkout without making a payment.';}
   else if(legacy){
-    const extended=params.has('once');
-    const week=Number(params.get('cents'));
-    prices={week,year:extended?Number(params.get('annual')):Math.round(week*52*.65),once:extended?Number(params.get('single')):null,reference:params.has('reference')?Number(params.get('reference')):null};
-    available=(extended?['week','year','once']:['week','year']).every(id=>Number.isSafeInteger(prices[id])&&prices[id]>=50&&checkoutUrl(params.get(id)));
-    if(!available)throw Error('Ask your coach for a fresh checkout link.');
+    throw Error('Text your coach for your current pilot checkout link.');
   }else if(ticket||offer){
     const result=await billing('prices');
     const messages=document.querySelector('#messages');
@@ -97,18 +94,21 @@ async function load(){
       note.textContent='Try the payment-free preview, then return to Messages.';draw();return;
     }
     prices=result.prices;available=result.available;
+    needsConsent=available&&result.sandbox;document.querySelector('#optin').hidden=!needsConsent;
+    pay.textContent='Continue to test checkout';
+    if(result.verificationPending){note.textContent='Finish messaging verification from your coach’s published page, then reload to continue.';document.querySelector('#retry').hidden=false;draw();return;}
     document.querySelector('#messages').hidden=available;
-    note.textContent=available?'':(ticket?'Your profile is saved. ':'')+'Your coach is still setting up payments.';
+    note.textContent=available?'Stripe test checkout · Use a test card.':(ticket?'Your profile is saved. ':'')+'Your coach is still setting up payments.';
   }else throw Error('Open the personal link from your coaching conversation to see your plans.');
   draw();
 }
 pay.onclick=async()=>{
-  if(!available)return;
+  if(!available||(needsConsent&&!consent.checked))return;
   pay.disabled=true;plans.disabled=true;note.textContent='Opening Stripe…';
   try{
     if(simulating){
       if(ticket && !preview){
-        const checkout=new URLSearchParams({preview:selected,intake:ticket});
+        const checkout=new URLSearchParams({preview:selected,intake:ticket,cents:String(prices[selected])});
         location.assign('./payment.html#'+checkout);
         return;
       }
@@ -123,12 +123,12 @@ pay.onclick=async()=>{
       if(!url)throw Error('Couldn’t open the Stripe sandbox.');
       location.assign(url);return;
     }
-    const result=legacy?{url:params.get(selected)}:await billing('checkout',{plan:selected,expectedCents:prices[selected]});
+    const result=await billing('checkout',{plan:selected,expectedCents:prices[selected],consent:consent.checked});
     const url=checkoutUrl(result.url);if(!url)throw Error('Ask your coach for a new checkout link.');
     location.assign(url);
   }catch(err){
     if(err.changed){available=false;await load().catch(()=>{document.querySelector('#retry').hidden=false;});}
-    note.textContent=err.message;pay.disabled=!available;plans.disabled=false;
+    note.textContent=err.message;pay.disabled=!available || (needsConsent&&!consent.checked);plans.disabled=false;
   }
 };
 window.addEventListener('pageshow',event=>{if(event.persisted && available){pay.disabled=false;plans.disabled=false;note.textContent='';}});

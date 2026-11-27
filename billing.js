@@ -15,7 +15,7 @@ export async function initBilling(user, updateIncome) {
     return data;
   }
   const connect = byId('stripe-connect');
-  const labels = {setup:'Coachline live payments setup pending',demo:'Demo account · Live payments disabled',unconnected:'Set up Stripe payouts to accept payments',onboarding:'Stripe setup incomplete or under review',connected:'Stripe payouts enabled · Monthly on the 15th'};
+  const labels = {sandbox:'Pilot sandbox · Test earnings only',setup:'Coachline live payments setup pending',demo:'Demo account · Live payments disabled',unconnected:'Set up Stripe payouts to accept payments',onboarding:'Stripe setup incomplete or under review',connected:'Stripe payouts enabled · Monthly on the 15th'};
   let connecting = false;
   connect.onclick = async () => {
     connecting = true;
@@ -36,6 +36,7 @@ export async function initBilling(user, updateIncome) {
       const result = await request('status');
       const status = labels[result.state] || 'Payments unavailable';
       setup.textContent = status;
+      connect.hidden=result.state==='sandbox';
       connect.disabled = connecting || !['unconnected','onboarding','connected'].includes(result.state);
       connect.textContent = result.state==='connected' ? 'Manage Stripe payouts' : result.state==='onboarding' ? 'Continue Stripe setup' : 'Set up US payouts with Stripe';
       checkout.disabled = result.state !== 'connected';

@@ -21,7 +21,7 @@ function setup({plan='once',paid=true,refunded=false,subscription=null,testKey,a
     webhooks={constructEventAsync:async(raw,signature)=>{if(signature!=='verified')throw Error();return {data:{object:{object:'checkout.session',id:sessionId}},livemode:true}}};
   }
   const env={STRIPE_SECRET_KEY:'sk_live_mock',STRIPE_WEBHOOK_SECRET:'whsec_mock',STRIPE_TEST_SECRET_KEY:testKey};
-  vm.runInNewContext(stripTypeScriptTypes(source),{Response,URL,Stripe,console,createClient:()=>db,Deno:{serve:fn=>handler=fn,env:{get:name=>env[name]}}});
+  vm.runInNewContext(stripTypeScriptTypes(source),{Response,URL,Stripe,console,requestBeforePhoto:async()=>{},createClient:()=>db,Deno:{serve:fn=>handler=fn,env:{get:name=>env[name]}}});
   return {row,post:(body,headers={})=>handler(new Request('https://example.test',{method:'POST',body:JSON.stringify(body),headers}))};
 }
 test('sandbox uses only a test key and never creates a live purchase',async()=>{

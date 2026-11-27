@@ -19,12 +19,12 @@ test('public message links greet the creator and record the referral separately 
     button.click();number.click();
     assert.deepEqual(sent[0],sent[1]);
     assert.equal(sent[0].page_slug,'matthias');
-    assert.equal(new URL(button.href).searchParams.get('body'),'What’s up, Matthias?');
+    assert.equal(button.href,'./join.html?coach=matthias');
     const repeat=link();wirePageMessage({querySelectorAll:()=>[repeat]},'matthias','Matthias McKinnon');
     assert.equal(repeat.href,button.href);
     const another=link();wirePageMessage({querySelectorAll:()=>[another]},'another-creator','  Zoë Adams  ');another.click();
     assert.notEqual(sent.at(-1).click_id,sent[0].click_id);
     assert.equal(saved.get('coachline-last-page-click'),sent.at(-1).click_id);
-    assert.equal(new URL(another.href).searchParams.get('body'),'What’s up, Zoë?');
+    assert.equal(another.href,'./join.html?coach=another-creator');
   }finally{globalThis.fetch=originalFetch;delete globalThis.localStorage;}
 });

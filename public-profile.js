@@ -1,4 +1,4 @@
-import {wirePageMessage} from './page-message.js?v=greeting2';
+import {wirePageMessage} from './page-message.js?v=pilot8join';
 import {publicDb} from './supabase-client.js';
 import {renderProfile} from './profile-render.js?v=pageowner1';
 const isMatthias=location.pathname.endsWith('/matthias.html');

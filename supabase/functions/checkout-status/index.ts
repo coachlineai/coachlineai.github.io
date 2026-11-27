@@ -1,3 +1,4 @@
+import {requestBeforePhoto} from './before-photo.ts';
 import Stripe from 'npm:stripe@16.12.0';
 import {createClient} from 'npm:@supabase/supabase-js@2.49.8';
 
@@ -28,7 +29,7 @@ async function sandbox(plan:Plan,attempt:string) {
   return reply({url:session.url});
 }
 
-async function reconcile(id:string,stripe:Stripe) {
+async function reconcile(id:string,stripe:Stripe,retryPhoto=false) {
   const database=db();
   const {data:order,error}=await database.from('coaching_orders').select('*').eq('session_id',id).maybeSingle();
   if (error) throw error;
@@ -54,7 +55,7 @@ async function reconcile(id:string,stripe:Stripe) {
   }
   if (session.status==='expired') state='ended';
   const update=await database.from('coaching_orders').update({
-    state,paid_through:through,checked_at:checked,subscription_id:subscription?.id||null,
+    state,paid_through:through,checked_at:checked,payment_intent_id:intent?.id||null,subscription_id:subscription?.id||null,
     client_phone:order.client_phone || session.customer_details?.phone || null
   }).eq('session_id',id).or('checked_at.is.null,checked_at.lte.'+checked);
   if(update.error) throw update.error;
@@ -62,7 +63,25 @@ async function reconcile(id:string,stripe:Stripe) {
   if(readError) throw readError;
   const {data:creator,error:creatorError}=await database.from('coach_preview_sessions').select('phone_line').eq('creator_id',order.creator_id).maybeSingle();
   if(creatorError) throw creatorError;
+  if(current.state==='active' && creator?.phone_line){
+    try {await requestBeforePhoto(database,order.creator_id,order.client_phone || session.customer_details?.phone,creator.phone_line);}
+    catch(err){if(retryPhoto)throw err;console.warn('Starting photo invitation pending');}
+  }
   return {state:current.state,plan:current.plan,amount:current.amount_cents,coachPhone:current.state==='active'?creator?.phone_line:null};
+}
+
+async function confirmPilot(s:Stripe.Checkout.Session){
+  const m=s.metadata;
+  if(s.livemode||m?.coachline_pilot!=='v1'||m.opt_in!=='yes'||!Object.hasOwn(offers,m.plan)||s.currency!=='usd'||s.amount_total!==Number(m.cents))return null;
+  if(s.payment_status!=='paid')return {sandbox:true,state:s.status==='expired'?'ended':'pending'};
+  const database=db();
+  const record=await database.from('coach_client_intake').select('phone,creator_id').eq('client_key',m.client_id).eq('creator_id',m.creator_id).single();
+  if(record.error)throw record.error;
+  const saved=await database.rpc('confirm_test_checkout',{client:m.client_id,session_ref:s.id,selected:m.plan,cents:s.amount_total});
+  if(saved.error)throw saved.error;
+  const line=await database.rpc('pilot_contact_line',{owner_id:m.creator_id,sender:record.data.phone});
+  if(line.error)throw line.error;
+  return {state:'active',sandbox:true,plan:m.plan,amount:s.amount_total,coachPhone:line.data};
 }
 
 Deno.serve(async req=>{
@@ -71,12 +90,24 @@ Deno.serve(async req=>{
   try {
     const signature=req.headers.get('stripe-signature');
     if(signature){
+      const raw=await req.text();
+      const testKey=Deno.env.get('STRIPE_TEST_SECRET_KEY')||'';
+      const testSecret=Deno.env.get('STRIPE_TEST_WEBHOOK_SECRET');
+      if(testSecret&&/^(sk|rk)_test_/.test(testKey)){
+        let event;
+        const test=stripeClient(testKey);
+        try{event=await test.webhooks.constructEventAsync(raw,signature,testSecret,undefined,Stripe.createSubtleCryptoProvider());}catch{/* May be a live reconciliation event. */}
+        if(event&&!event.livemode){
+          if(event.type==='checkout.session.completed'||event.type==='checkout.session.async_payment_succeeded')await confirmPilot(await test.checkout.sessions.retrieve(event.data.object.id));
+          return reply({received:true});
+        }
+      }
       const key=Deno.env.get('STRIPE_SECRET_KEY') || '';
       const secret=Deno.env.get('STRIPE_WEBHOOK_SECRET') || (await db().rpc('coachline_webhook_key')).data;
       if(!secret || !/^(sk|rk)_live_/.test(key)) return reply({error:'Webhook setup pending'},503);
       const stripe=stripeClient(key);
       let event:Stripe.Event;
-      try {event=await stripe.webhooks.constructEventAsync(await req.text(),signature,secret,undefined,Stripe.createSubtleCryptoProvider());}
+      try {event=await stripe.webhooks.constructEventAsync(raw,signature,secret,undefined,Stripe.createSubtleCryptoProvider());}
       catch {return reply({error:'Invalid signature'},400);}
       if(!event.livemode)return reply({received:true});
       const object=event.data.object;
@@ -93,7 +124,7 @@ Deno.serve(async req=>{
           sessionId=sessions.data[0]?.id;
         }
       }
-      if(sessionId) await reconcile(sessionId,stripe);
+      if(sessionId) await reconcile(sessionId,stripe,true);
       return reply({received:true});
     }
     const body=await req.json().catch(()=>({}));
@@ -105,6 +136,7 @@ Deno.serve(async req=>{
       const key=Deno.env.get('STRIPE_TEST_SECRET_KEY')||'';
       if(!/^(sk|rk)_test_/.test(key))return reply({error:'Sandbox unavailable'},503);
       const s=await stripeClient(key).checkout.sessions.retrieve(id);
+      if(s.metadata?.coachline_pilot==='v1'){const result=await confirmPilot(s);return result?reply(result):reply({error:'Unknown checkout'},404);}
       if(s.livemode || s.metadata?.coachline_preview!=='yes')return reply({error:'Unknown checkout'},404);
       return reply({demo:true,state:s.payment_status==='paid'?'active':'pending',plan:s.metadata.plan,amount:s.amount_total});
     }
