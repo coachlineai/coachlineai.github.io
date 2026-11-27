@@ -147,7 +147,28 @@ async function readPhoto(url: URL) {
   return {inlineData:{mimeType, data:Buffer.from(bytes.buffer).toString('base64')}};
 }
 
+function supportsIndicators(service: unknown) {
+  return !service || String(service).toLowerCase() === 'imessage';
+}
+
 Deno.serve(async req => {
+  let stopTyping: (() => Promise<void>) | undefined;
+  async function acknowledge(number: string, line: string, service: unknown) {
+    if (!supportsIndicators(service)) return;
+    stopTyping = () => indicate('send-typing-indicator', number, line, {state: 'stop'});
+    await Promise.all([
+      indicate('mark-read', number, line),
+      indicate('send-typing-indicator', number, line, {state: 'start', max_duration_ms: 60000})
+    ]);
+  }
+  try {
+    return await handleInbound(req, acknowledge);
+  } finally {
+    await stopTyping?.();
+  }
+});
+
+async function handleInbound(req: Request, acknowledge: (number: string, line: string, service: unknown) => Promise<void>) {
   if (req.method !== 'POST') return new Response(null, {status:405});
   const signature = req.headers.get('sb-signing-secret');
   if (!signature || !/^[0-9a-f-]{36}$/i.test(signature)) return new Response(null,{status:401});
@@ -163,8 +184,10 @@ Deno.serve(async req => {
   const routing=await db.rpc('client_message_owner',{sender,destination:m.to_number,greeting:typeof m.content==='string'?m.content.trim():''});
   if(routing.error)return new Response(null,{status:503});
   if(routing.data==='00000000-0000-0000-0000-000000000000'){
-    if(!m.opted_out && !/^(stop|stopall|unsubscribe|cancel|end|quit|start|help)$/i.test(String(m.content||'').trim()))
+    if(!m.opted_out && !/^(stop|stopall|unsubscribe|cancel|end|quit|start|help)$/i.test(String(m.content||'').trim())) {
+      await acknowledge(sender,gateway.phone_line,m.service);
       await sendCoachMessages(sender,gateway.phone_line,'Open your coach’s page and send the greeting shown in Messages so I can find your coaching profile.','');
+    }
     return done();
   }
   if(routing.data && routing.data!==gateway.creator_id){
@@ -209,6 +232,7 @@ Deno.serve(async req => {
     const row=await db.from('coach_client_intake').select('client_key,coaching_paused').eq('creator_id',pilot.creator_id).eq('phone',sender).single();
     if(row.error)return new Response(null,{status:503});
     if(row.data.coaching_paused)return done();
+    await acknowledge(sender,pilot.phone_line,m.service);
     if(intake.stage==='payment'){
       try{
         const handled=await pilotTurn(db,pilot.creator_id,sender,pilot.published_style,m.message_handle,caption,media,
@@ -251,6 +275,7 @@ Deno.serve(async req => {
   const client = await db.from('coach_client_intake').select(profileFields).eq('creator_id',pilot.creator_id).eq('phone',sender).single();
   if(client.error)return new Response(null,{status:503});
   if(client.data.coaching_paused)return done();
+  await acknowledge(sender,pilot.phone_line,m.service);
 
   async function shareDashboard(){
     if(!client.data.coaching_processing_consent_at)return;
@@ -372,11 +397,6 @@ Deno.serve(async req => {
   const {data:claim,error:claimError} = await db.rpc('claim_client_phone_turn',{owner_id:pilot.creator_id,sender,inbound_handle:m.message_handle,question_text:question});
   if (claimError || claim==='busy') return new Response(null,{status:503});
   if (claim!=='claimed') return done();
-  const showIndicators = !m.service || String(m.service).toLowerCase() === 'imessage';
-  if (showIndicators) {
-    await indicate('mark-read', sender, pilot.phone_line);
-    await indicate('send-typing-indicator', sender, pilot.phone_line, { state: 'start', max_duration_ms: 35000 });
-  }
   const turns=()=>db.from('coach_phone_turns');
   let phase='generation_failed';
   try {
@@ -407,7 +427,7 @@ Deno.serve(async req => {
       answer = photoStage === 'analysis' ? 'I received the photo, but the image analysis didn’t finish. Please try it again in a moment.' : 'I couldn’t read that photo. Try a smaller photo or screenshot, or describe what’s in it and what you’d like to know.';
     }
     const prefix = media && answer.match(/^(\p{Extended_Pictographic}\uFE0F?)\s+(?=\S)/u);
-    if (prefix && foodEmoji.has(prefix[1].replace('\uFE0F','')) && showIndicators) {
+    if (prefix && foodEmoji.has(prefix[1].replace('\uFE0F','')) && supportsIndicators(m.service)) {
       const reacted = await reactToPhoto(pilot.phone_line, m.primary_message_handle || m.message_handle, m.part_index, prefix[1]);
       if (reacted) answer = answer.slice(prefix[0].length);
     }
@@ -419,8 +439,6 @@ Deno.serve(async req => {
   } catch {
     const failed = await turns().update({state:phase}).eq('handle',m.message_handle).select('handle').single();
     if (failed.error) console.error('Could not save failed coaching turn', failed.error.code);
-  } finally {
-    if (showIndicators) await indicate('send-typing-indicator', sender, pilot.phone_line, { state: 'stop' });
   }
   return done();
-});
+}
