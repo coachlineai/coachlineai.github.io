@@ -1,12 +1,12 @@
 import {showCreatorContact} from './creator-contact.js';
-import {startCoachingCounts} from './coaching-feed.js?v=pageowner1';
+import {startCoachingCounts} from './coaching-feed.js?v=pilot8';
 import {initSettings, showSettingsTab} from './settings.js?v=delete1';
 import qrCode from './vendor/coach-qr.js';
 import {phoneNumber} from './profile-render.js';
 import {db,requireUser,accountPage,publicLink,protectRestoredPage} from './supabase-client.js';
 import { initCoach } from './coach.js?v=creatorvoice1';
 import {initBilling} from './billing.js?v=planoffer1';
-import { initIncome } from './income.js?v=payout15';
+import { initIncome } from './income.js?v=pilot8';
 import { showClients } from './clients.js?v=coaching2';
 const $=s=>document.querySelector(s);let user,page,profile;
 function node(tag,text){const n=document.createElement(tag);n.textContent=text;return n;}

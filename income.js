@@ -218,7 +218,7 @@ export function initIncome() {
     const home=document.querySelector('.metrics [data-open="Income"]');
     home.querySelector('strong').textContent=data.state==='error' ? '—' : money(data.total || 0);
     home.querySelector('small').textContent=status;
-    document.querySelector('.metrics [data-open="Clients"] strong').textContent=data.state==='error' ? '—' : data.clients || 0;
+
     if (!sample) { $('income-status').textContent=status;overview();activity(); }
   };
 }

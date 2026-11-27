@@ -14,7 +14,7 @@ function element(tag,text,className){
   return el;
 }
 export async function updateCoachingCounts(){
-  const [{data,error},leads]=await Promise.all([db.rpc('creator_coaching_counts'),db.rpc('creator_page_leads')]);
+  const [{data,error},leads,pilot]=await Promise.all([db.rpc('creator_coaching_counts'),db.rpc('creator_page_leads'),db.rpc('pilot_dashboard_counts')]);
   const leadCount=document.querySelector('#page-leads');
   if(leadCount&&!leads.error){leadCount.textContent=leads.data+' pending page '+(leads.data===1?'lead':'leads');leadCount.hidden=false;}
   if(error||!data)return;
@@ -22,11 +22,13 @@ export async function updateCoachingCounts(){
   badge.textContent=data.unread;
   badge.hidden=!data.unread;
   badge.parentElement.setAttribute('aria-label',data.unread?'Clients, '+data.unread+' with new activity':'Clients');
-  document.querySelector('#active-clients').textContent=data.active;
+  if(pilot.error || !pilot.data) return;
+  document.querySelector('#creator-pilot-total').textContent=pilot.data.mine;
+  document.querySelector('#active-clients').textContent=pilot.data.active;
   const progress=document.querySelector('.invite progress');
-  progress.value=Math.min(data.joined,20);
+  progress.value=Math.min(pilot.data.filled,progress.max);
   const count=document.querySelector('#pilot-joined');
-  count.textContent=data.joined<20?data.joined+' of 20 clients completed onboarding':data.joined+' clients completed onboarding · First 20 reached';
+  count.textContent=pilot.data.filled+' of '+progress.max+' pilot spots filled';
 }
 export function startCoachingCounts(){
   updateCoachingCounts();
