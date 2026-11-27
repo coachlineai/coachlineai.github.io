@@ -107,6 +107,11 @@ pay.onclick=async()=>{
   pay.disabled=true;plans.disabled=true;note.textContent='Opening Stripe…';
   try{
     if(simulating){
+      if(ticket && !preview){
+        const checkout=new URLSearchParams({preview:selected,intake:ticket});
+        location.assign('./payment.html#'+checkout);
+        return;
+      }
       const response=await fetch('https://kvpngwwaemdjwchslcov.supabase.co/functions/v1/checkout-status',{
         method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_Ls2Da1rHiPIT8VR-9RbSGw_FkS_ofgL'},
         body:JSON.stringify({action:'preview',plan:selected,attempt:crypto.randomUUID()})
